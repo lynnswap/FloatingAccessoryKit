@@ -6,13 +6,11 @@ import UIKit
 enum TabBarAccessoryHitTesting {
     private typealias HitTestIMP = @convention(c) (UIView, Selector, CGPoint, UIEvent?) -> UIView?
 
-    private static var didInstall = false
-    private static var originalHitTest: HitTestIMP?
-    private static var hitTestBlock: Any?
+    private static var installedClassStates: [ObjectIdentifier: ClassState] = [:]
     private static var passthroughStateKey: UInt8 = 0
 
     static func register(container: UIView, contentView: UIView) {
-        installIfNeeded()
+        installIfNeeded(for: type(of: container))
         objc_setAssociatedObject(
             container,
             &passthroughStateKey,
@@ -34,29 +32,28 @@ enum TabBarAccessoryHitTesting {
         )
     }
 
-    private static func installIfNeeded() {
-        guard !didInstall else {
+    private static func installIfNeeded(for containerClass: AnyClass) {
+        guard containerClass !== UIView.self else {
             return
         }
 
-        didInstall = true
-        swizzleHitTest()
-    }
+        let classID = ObjectIdentifier(containerClass)
+        guard installedClassStates[classID] == nil else {
+            return
+        }
 
-    private static func swizzleHitTest() {
         let selector = #selector(UIView.hitTest(_:with:))
-        guard let method = class_getInstanceMethod(UIView.self, selector) else {
+        guard let baseMethod = class_getInstanceMethod(UIView.self, selector),
+              let typeEncoding = method_getTypeEncoding(baseMethod),
+              let originalImplementation = class_getMethodImplementation(containerClass, selector) else {
             return
         }
 
-        originalHitTest = unsafeBitCast(
-            method_getImplementation(method),
-            to: HitTestIMP.self
-        )
+        let originalHitTest = unsafeBitCast(originalImplementation, to: HitTestIMP.self)
 
         let block: @convention(block) (UIView, CGPoint, UIEvent?) -> UIView? = { view, point, event in
             MainActor.assumeIsolated {
-                let originalResult = originalHitTest?(view, selector, point, event)
+                let originalResult = originalHitTest(view, selector, point, event)
                 return adjustedHitTestResult(
                     for: view,
                     point: point,
@@ -66,8 +63,16 @@ enum TabBarAccessoryHitTesting {
             }
         }
 
-        hitTestBlock = block
-        method_setImplementation(method, imp_implementationWithBlock(block))
+        let implementation = imp_implementationWithBlock(block)
+        if !class_addMethod(containerClass, selector, implementation, typeEncoding),
+           let method = class_getInstanceMethod(containerClass, selector) {
+            method_setImplementation(method, implementation)
+        }
+
+        installedClassStates[classID] = ClassState(
+            originalHitTest: originalHitTest,
+            hitTestBlock: block
+        )
     }
 
     private static func adjustedHitTestResult(
@@ -76,14 +81,24 @@ enum TabBarAccessoryHitTesting {
         event: UIEvent?,
         originalResult: UIView?
     ) -> UIView? {
-        guard originalResult === view,
+        guard originalResult != nil,
               let state = objc_getAssociatedObject(view, &passthroughStateKey) as? PassthroughState,
               let contentView = state.contentView else {
             return originalResult
         }
 
         let contentPoint = view.convert(point, to: contentView)
-        return contentView.hitTest(contentPoint, with: event) == nil ? nil : originalResult
+        return contentView.hitTest(contentPoint, with: event)
+    }
+
+    private final class ClassState {
+        let originalHitTest: HitTestIMP
+        let hitTestBlock: Any
+
+        init(originalHitTest: @escaping HitTestIMP, hitTestBlock: Any) {
+            self.originalHitTest = originalHitTest
+            self.hitTestBlock = hitTestBlock
+        }
     }
 
     private final class PassthroughState: NSObject {
