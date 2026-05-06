@@ -84,6 +84,10 @@ public final class TabBarAccessoryController {
 #Preview("UIView") {
     PreviewTabBarController { tabBarController in
         let button = UIButton(type: .system)
+        var config = UIButton.Configuration.plain()
+        config.cornerStyle = .capsule
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
+        button.configuration = config
         button.setImage(UIImage(systemName: "plus"), for: .normal)
 
         tabBarController.accessoryController.setContent(button)
