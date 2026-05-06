@@ -23,9 +23,6 @@ final class TabBarAccessoryCoordinator {
         in tabBarController: UITabBarController,
         hostingController newHostingController: UIViewController?
     ) {
-        UIKitPrivateRuntime.installTouchRoutingFix()
-        UIKitPrivateRuntime.installTabBarAnimationHooks()
-
         guard let view else {
             removeAccessoryView(animated: animated, from: tabBarController)
             return
@@ -42,8 +39,6 @@ final class TabBarAccessoryCoordinator {
 
         self.position = position
         isHidden = false
-        UIKitPrivateRuntime.setHasManagedTabAccessoryView(true, on: tabBarController)
-        UIKitPrivateRuntime.setIsManagedTabAccessoryContentView(true, on: view)
 
         if let tabAccessory {
             tabBarController.setBottomAccessory(tabAccessory, animated: animated)
@@ -64,9 +59,7 @@ final class TabBarAccessoryCoordinator {
         if hidden {
             unbindContentViewConstraints()
             tabBarController.setBottomAccessory(nil, animated: animated)
-            UIKitPrivateRuntime.setHasManagedTabAccessoryView(false, on: tabBarController)
         } else {
-            UIKitPrivateRuntime.setHasManagedTabAccessoryView(true, on: tabBarController)
             tabBarController.setBottomAccessory(tabAccessory, animated: animated)
             update(in: tabBarController)
         }
@@ -81,12 +74,10 @@ final class TabBarAccessoryCoordinator {
 
         bindContentViewIfNeeded(contentView, to: container)
         updateContentViewSize(contentView, matching: container)
-        neutralizePocketParticipation(in: container)
     }
 
     private func removeAccessoryView(animated: Bool, from tabBarController: UITabBarController) {
         unbindContentViewConstraints()
-        contentView.map { UIKitPrivateRuntime.setIsManagedTabAccessoryContentView(false, on: $0) }
         if tabAccessory != nil {
             tabBarController.setBottomAccessory(nil, animated: animated)
         }
@@ -94,16 +85,15 @@ final class TabBarAccessoryCoordinator {
         contentView = nil
         tabAccessory = nil
         isHidden = false
-        UIKitPrivateRuntime.setHasManagedTabAccessoryView(false, on: tabBarController)
     }
 
     private func accessoryContainer(containing contentView: UIView, in tabBarController: UITabBarController) -> UIView? {
-        tabBarController.view.descendants { view in
-            view.privateClassName.contains("UITabAccessoryContainer")
+        guard let container = contentView.superview,
+              container.isDescendant(of: tabBarController.view) else {
+            return nil
         }
-        .first { container in
-            contentView.isDescendant(of: container)
-        }
+
+        return container
     }
 
     private func bindContentViewIfNeeded(_ contentView: UIView, to container: UIView) {
@@ -120,6 +110,7 @@ final class TabBarAccessoryCoordinator {
         boundPosition = position
         originalTranslatesAutoresizingMaskIntoConstraints = contentView.translatesAutoresizingMaskIntoConstraints
         contentView.translatesAutoresizingMaskIntoConstraints = false
+        TabBarAccessoryHitTesting.register(container: container, contentView: contentView)
 
         let width = contentView.widthAnchor.constraint(equalToConstant: contentView.intrinsicContentSize.width)
         let height = contentView.heightAnchor.constraint(equalToConstant: contentView.intrinsicContentSize.height)
@@ -147,6 +138,7 @@ final class TabBarAccessoryCoordinator {
     private func unbindContentViewConstraints() {
         NSLayoutConstraint.deactivate(installedConstraints)
         installedConstraints.removeAll()
+        TabBarAccessoryHitTesting.unregister(container: boundContainer)
         if let contentView, let originalTranslatesAutoresizingMaskIntoConstraints {
             contentView.translatesAutoresizingMaskIntoConstraints = originalTranslatesAutoresizingMaskIntoConstraints
         }
@@ -217,20 +209,6 @@ final class TabBarAccessoryCoordinator {
         }
 
         constraint.constant = constant
-    }
-
-    private func neutralizePocketParticipation(in container: UIView) {
-        container.interactions
-            .filter { NSStringFromClass(type(of: $0)).contains("_UIScrollPocketInteraction") }
-            .forEach { interaction in
-                guard let object = interaction as AnyObject as? NSObject else {
-                    return
-                }
-                UIKitPrivateRuntime.setBool(false, on: object, selectorName: "_setRequiresPocket:")
-                UIKitPrivateRuntime.setCGRect(.zero, on: object, selectorName: "_setRect:")
-                UIKitPrivateRuntime.setInsets(.zero, on: object, selectorName: "_setInsets:")
-                UIKitPrivateRuntime.perform("_updateProperties", on: object)
-            }
     }
 
     private func removeHostingController() {
