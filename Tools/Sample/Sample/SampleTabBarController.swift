@@ -110,7 +110,34 @@ private struct PreviewScrollView: SwiftUI.View {
 }
 
 #if DEBUG
-#Preview("UIView") {
+private struct SampleTabBarControllerPreview: UIViewControllerRepresentable {
+    private let accessoryPosition: TabBarAccessoryController.Position
+    private let accessoryView: @MainActor () -> UIView
+
+    init(
+        accessoryPosition: TabBarAccessoryController.Position = .trailing,
+        accessoryView: @escaping @MainActor () -> UIView
+    ) {
+        self.accessoryPosition = accessoryPosition
+        self.accessoryView = accessoryView
+    }
+
+    func makeUIViewController(context: Context) -> SampleTabBarController {
+        SampleTabBarController(
+            accessoryView: accessoryView(),
+            accessoryPosition: accessoryPosition
+        )
+    }
+
+    func updateUIViewController(_ uiViewController: SampleTabBarController, context: Context) {
+        uiViewController.setAccessory(
+            accessoryView(),
+            position: accessoryPosition
+        )
+    }
+}
+
+private func makePreviewAddButton() -> UIButton {
     let button = UIButton(type: .system)
     var configuration = UIButton.Configuration.plain()
     configuration.cornerStyle = .capsule
@@ -118,7 +145,17 @@ private struct PreviewScrollView: SwiftUI.View {
     configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
     button.configuration = configuration
     button.accessibilityLabel = "Add"
+    return button
+}
 
-    return SampleTabBarController(accessoryView: button)
+#Preview("UIKit") {
+    SampleTabBarController(accessoryView: makePreviewAddButton())
+}
+
+#Preview("SwiftUI") {
+    SampleTabBarControllerPreview {
+        makePreviewAddButton()
+    }
+    .ignoresSafeArea(.all,edges:.vertical)
 }
 #endif
