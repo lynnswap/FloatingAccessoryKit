@@ -10,36 +10,27 @@ import SwiftUI
 import UIKit
 
 final class SampleTabBarController: UITabBarController {
-    private let configureAccessory: @MainActor (TabBarAccessoryController) -> Void
+    private var accessoryConfiguration: AccessoryConfiguration
     private lazy var accessoryController = TabBarAccessoryController(tabBarController: self)
 
-    init(configureAccessory: @escaping @MainActor (TabBarAccessoryController) -> Void) {
-        self.configureAccessory = configureAccessory
+    private init(accessoryConfiguration: AccessoryConfiguration) {
+        self.accessoryConfiguration = accessoryConfiguration
 
         super.init(nibName: nil, bundle: nil)
     }
 
     convenience init(
-        accessoryPosition: TabBarAccessoryController.Position = .trailing,
-        accessoryView: @escaping @MainActor () -> UIView
+        accessoryView: UIView,
+        accessoryPosition: TabBarAccessoryController.Position = .trailing
     ) {
-        self.init { accessoryController in
-            accessoryController.setContent(
-                accessoryView(),
-                position: accessoryPosition
-            )
-        }
+        self.init(accessoryConfiguration: .uiView(accessoryView, position: accessoryPosition))
     }
 
     convenience init<Accessory: SwiftUI.View>(
         accessoryPosition: TabBarAccessoryController.Position = .trailing,
         @SwiftUI.ViewBuilder accessory: @escaping @MainActor () -> Accessory
     ) {
-        self.init { accessoryController in
-            accessoryController.setContent(position: accessoryPosition) {
-                accessory()
-            }
-        }
+        self.init(accessoryConfiguration: .swiftUI(position: accessoryPosition, accessory: accessory))
     }
 
     @available(*, unavailable)
@@ -56,7 +47,23 @@ final class SampleTabBarController: UITabBarController {
             makePreviewTab(title: "Settings", systemImageName: "gearshape")
         ]
 
-        configureAccessory(accessoryController)
+        applyAccessoryConfigurationIfNeeded()
+    }
+
+    func setAccessory(
+        _ accessoryView: UIView,
+        position: TabBarAccessoryController.Position = .trailing
+    ) {
+        accessoryConfiguration = .uiView(accessoryView, position: position)
+        applyAccessoryConfigurationIfNeeded()
+    }
+
+    func setAccessory<Accessory: SwiftUI.View>(
+        position: TabBarAccessoryController.Position = .trailing,
+        @SwiftUI.ViewBuilder _ accessory: @escaping @MainActor () -> Accessory
+    ) {
+        accessoryConfiguration = .swiftUI(position: position, accessory: accessory)
+        applyAccessoryConfigurationIfNeeded()
     }
 
     private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
@@ -71,6 +78,41 @@ final class SampleTabBarController: UITabBarController {
         return viewController
     }
 
+    private func applyAccessoryConfigurationIfNeeded() {
+        guard isViewLoaded else {
+            return
+        }
+
+        accessoryConfiguration.configure(accessoryController)
+    }
+
+}
+
+private struct AccessoryConfiguration {
+    let configure: @MainActor (TabBarAccessoryController) -> Void
+
+    static func uiView(
+        _ view: UIView,
+        position: TabBarAccessoryController.Position
+    ) -> Self {
+        AccessoryConfiguration { accessoryController in
+            accessoryController.setContent(
+                view,
+                position: position
+            )
+        }
+    }
+
+    static func swiftUI<Accessory: SwiftUI.View>(
+        position: TabBarAccessoryController.Position,
+        @SwiftUI.ViewBuilder accessory: @escaping @MainActor () -> Accessory
+    ) -> Self {
+        AccessoryConfiguration { accessoryController in
+            accessoryController.setContent(position: position) {
+                accessory()
+            }
+        }
+    }
 }
 
 private struct PreviewScrollView: SwiftUI.View {
@@ -94,25 +136,59 @@ private struct PreviewScrollView: SwiftUI.View {
     }
 }
 
+private struct SampleTabBarControllerPreview<Accessory: SwiftUI.View>: UIViewControllerRepresentable {
+    private let accessoryPosition: TabBarAccessoryController.Position
+    private let accessory: @MainActor () -> Accessory
+
+    init(
+        accessoryPosition: TabBarAccessoryController.Position = .trailing,
+        @SwiftUI.ViewBuilder accessory: @escaping @MainActor () -> Accessory
+    ) {
+        self.accessoryPosition = accessoryPosition
+        self.accessory = accessory
+    }
+
+    func makeUIViewController(context: Context) -> SampleTabBarController {
+        SampleTabBarController(accessoryPosition: accessoryPosition) {
+            accessory()
+        }
+    }
+
+    func updateUIViewController(_ uiViewController: SampleTabBarController, context: Context) {
+        uiViewController.setAccessory(position: accessoryPosition) {
+            accessory()
+        }
+    }
+}
+
 #if DEBUG
 #Preview("UIView") {
-    SampleTabBarController(accessoryView: {
-        let button = UIButton(type: .system)
-        var configuration = UIButton.Configuration.plain()
-        configuration.cornerStyle = .capsule
-        configuration.image = UIImage(systemName: "plus")
-        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
-        button.configuration = configuration
-        button.accessibilityLabel = "Add"
-        return button
-    })
+    let button = UIButton(type: .system)
+    var configuration = UIButton.Configuration.plain()
+    configuration.cornerStyle = .capsule
+    configuration.image = UIImage(systemName: "plus")
+    configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
+    button.configuration = configuration
+    button.accessibilityLabel = "Add"
+
+    return SampleTabBarController(accessoryView: button)
 }
 
 #Preview("SwiftUI") {
-    SampleTabBarController {
-        Button {} label: {
+    @Previewable @State var isShowing: Bool = false
+    SampleTabBarControllerPreview {
+        if isShowing {
+            Button {} label: {
+                Image(systemName: "minus")
+            }
+        }
+        Button {
+            isShowing.toggle()
+        } label: {
             Image(systemName: "plus")
         }
+        
     }
+    .ignoresSafeArea(.all,edges:.vertical)
 }
 #endif

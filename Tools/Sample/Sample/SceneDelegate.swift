@@ -20,9 +20,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = SampleTabBarController(accessoryView: {
-            Self.makeAddButton()
-        })
+        window.rootViewController = SampleTabBarController(accessoryView: Self.makeAddButton())
         window.makeKeyAndVisible()
         self.window = window
     }
