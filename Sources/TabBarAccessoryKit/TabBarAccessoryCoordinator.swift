@@ -4,7 +4,6 @@ import UIKit
 @available(iOS 26.0, *)
 final class TabBarAccessoryCoordinator {
     private var contentView: UIView?
-    private var hostingController: UIViewController?
     private var tabAccessory: UITabAccessory?
     private var position: TabBarAccessoryController.Position = .trailing
     private weak var boundContainer: UIView?
@@ -20,8 +19,7 @@ final class TabBarAccessoryCoordinator {
         _ view: UIView?,
         position: TabBarAccessoryController.Position,
         animated: Bool,
-        in tabBarController: UITabBarController,
-        hostingController newHostingController: UIViewController?
+        in tabBarController: UITabBarController
     ) {
         guard let view else {
             removeAccessoryView(animated: animated, from: tabBarController)
@@ -30,11 +28,8 @@ final class TabBarAccessoryCoordinator {
 
         if contentView !== view {
             removeAccessoryView(animated: false, from: tabBarController)
-            hostingController = newHostingController
             contentView = view
             tabAccessory = UITabAccessory(contentView: view)
-        } else if hostingController !== newHostingController {
-            hostingController = newHostingController
         }
 
         self.position = position
@@ -81,7 +76,6 @@ final class TabBarAccessoryCoordinator {
         if tabAccessory != nil {
             tabBarController.setBottomAccessory(nil, animated: animated)
         }
-        removeHostingController()
         contentView = nil
         tabAccessory = nil
         isHidden = false
@@ -209,9 +203,5 @@ final class TabBarAccessoryCoordinator {
         }
 
         constraint.constant = constant
-    }
-
-    private func removeHostingController() {
-        hostingController = nil
     }
 }

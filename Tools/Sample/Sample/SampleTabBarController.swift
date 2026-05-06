@@ -26,13 +26,6 @@ final class SampleTabBarController: UITabBarController {
         self.init(accessoryConfiguration: .uiView(accessoryView, position: accessoryPosition))
     }
 
-    convenience init<Accessory: SwiftUI.View>(
-        accessoryPosition: TabBarAccessoryController.Position = .trailing,
-        @SwiftUI.ViewBuilder accessory: @escaping @MainActor () -> Accessory
-    ) {
-        self.init(accessoryConfiguration: .swiftUI(position: accessoryPosition, accessory: accessory))
-    }
-
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -58,14 +51,6 @@ final class SampleTabBarController: UITabBarController {
         applyAccessoryConfigurationIfNeeded()
     }
 
-    func setAccessory<Accessory: SwiftUI.View>(
-        position: TabBarAccessoryController.Position = .trailing,
-        @SwiftUI.ViewBuilder _ accessory: @escaping @MainActor () -> Accessory
-    ) {
-        accessoryConfiguration = .swiftUI(position: position, accessory: accessory)
-        applyAccessoryConfigurationIfNeeded()
-    }
-
     private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
         let viewController = UIHostingController(rootView: PreviewScrollView())
         viewController.view.backgroundColor = .systemBackground
@@ -85,7 +70,6 @@ final class SampleTabBarController: UITabBarController {
 
         accessoryConfiguration.configure(accessoryController)
     }
-
 }
 
 private struct AccessoryConfiguration {
@@ -100,17 +84,6 @@ private struct AccessoryConfiguration {
                 view,
                 position: position
             )
-        }
-    }
-
-    static func swiftUI<Accessory: SwiftUI.View>(
-        position: TabBarAccessoryController.Position,
-        @SwiftUI.ViewBuilder accessory: @escaping @MainActor () -> Accessory
-    ) -> Self {
-        AccessoryConfiguration { accessoryController in
-            accessoryController.setContent(position: position) {
-                accessory()
-            }
         }
     }
 }
@@ -136,31 +109,6 @@ private struct PreviewScrollView: SwiftUI.View {
     }
 }
 
-private struct SampleTabBarControllerPreview<Accessory: SwiftUI.View>: UIViewControllerRepresentable {
-    private let accessoryPosition: TabBarAccessoryController.Position
-    private let accessory: @MainActor () -> Accessory
-
-    init(
-        accessoryPosition: TabBarAccessoryController.Position = .trailing,
-        @SwiftUI.ViewBuilder accessory: @escaping @MainActor () -> Accessory
-    ) {
-        self.accessoryPosition = accessoryPosition
-        self.accessory = accessory
-    }
-
-    func makeUIViewController(context: Context) -> SampleTabBarController {
-        SampleTabBarController(accessoryPosition: accessoryPosition) {
-            accessory()
-        }
-    }
-
-    func updateUIViewController(_ uiViewController: SampleTabBarController, context: Context) {
-        uiViewController.setAccessory(position: accessoryPosition) {
-            accessory()
-        }
-    }
-}
-
 #if DEBUG
 #Preview("UIView") {
     let button = UIButton(type: .system)
@@ -172,23 +120,5 @@ private struct SampleTabBarControllerPreview<Accessory: SwiftUI.View>: UIViewCon
     button.accessibilityLabel = "Add"
 
     return SampleTabBarController(accessoryView: button)
-}
-
-#Preview("SwiftUI") {
-    @Previewable @State var isShowing: Bool = false
-    SampleTabBarControllerPreview {
-        if isShowing {
-            Button {} label: {
-                Image(systemName: "minus")
-            }
-        }
-        Button {
-            isShowing.toggle()
-        } label: {
-            Image(systemName: "plus")
-        }
-        
-    }
-    .ignoresSafeArea(.all,edges:.vertical)
 }
 #endif

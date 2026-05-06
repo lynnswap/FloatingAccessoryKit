@@ -1,4 +1,3 @@
-import SwiftUI
 import UIKit
 
 @MainActor
@@ -35,32 +34,7 @@ public final class TabBarAccessoryController {
             view,
             position: position,
             animated: animated,
-            in: tabBarController,
-            hostingController: nil
-        )
-    }
-
-    public func setContent<Content: SwiftUI.View>(
-        position: Position = .trailing,
-        animated: Bool = false,
-        @SwiftUI.ViewBuilder _ content: @escaping () -> Content
-    ) {
-        guard let tabBarController else {
-            return
-        }
-
-        let hostingController = UIHostingController(
-            rootView: TabBarAccessorySwiftUIRoot(content: content)
-        )
-        hostingController.sizingOptions = [.intrinsicContentSize]
-        hostingController.view.backgroundColor = UIColor.clear
-
-        coordinator.setAccessoryView(
-            hostingController.view,
-            position: position,
-            animated: animated,
-            in: tabBarController,
-            hostingController: hostingController
+            in: tabBarController
         )
     }
 
