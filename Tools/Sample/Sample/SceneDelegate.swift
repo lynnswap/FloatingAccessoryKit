@@ -20,8 +20,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = SampleTabBarController()
+        window.rootViewController = SampleTabBarController(accessoryView: {
+            Self.makeAddButton()
+        })
         window.makeKeyAndVisible()
         self.window = window
+    }
+
+    private static func makeAddButton() -> UIButton {
+        let button = UIButton(type: .system)
+        var configuration = UIButton.Configuration.plain()
+        configuration.cornerStyle = .capsule
+        configuration.image = UIImage(systemName: "plus")
+        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
+        button.configuration = configuration
+        button.accessibilityLabel = "Add"
+        return button
     }
 }

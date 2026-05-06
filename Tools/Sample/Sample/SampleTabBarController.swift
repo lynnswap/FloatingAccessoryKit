@@ -6,10 +6,46 @@
 //
 
 import TabBarAccessoryKit
+import SwiftUI
 import UIKit
 
 final class SampleTabBarController: UITabBarController {
+    private let configureAccessory: @MainActor (TabBarAccessoryController) -> Void
     private lazy var accessoryController = TabBarAccessoryController(tabBarController: self)
+
+    init(configureAccessory: @escaping @MainActor (TabBarAccessoryController) -> Void) {
+        self.configureAccessory = configureAccessory
+
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    convenience init(
+        accessoryPosition: TabBarAccessoryController.Position = .trailing,
+        accessoryView: @escaping @MainActor () -> UIView
+    ) {
+        self.init { accessoryController in
+            accessoryController.setContent(
+                accessoryView(),
+                position: accessoryPosition
+            )
+        }
+    }
+
+    convenience init<Accessory: SwiftUI.View>(
+        accessoryPosition: TabBarAccessoryController.Position = .trailing,
+        @SwiftUI.ViewBuilder accessory: @escaping @MainActor () -> Accessory
+    ) {
+        self.init { accessoryController in
+            accessoryController.setContent(position: accessoryPosition) {
+                accessory()
+            }
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -20,11 +56,12 @@ final class SampleTabBarController: UITabBarController {
             makePreviewTab(title: "Settings", systemImageName: "gearshape")
         ]
 
-        accessoryController.setContent(makeAddButton())
+        configureAccessory(accessoryController)
     }
 
     private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
-        let viewController = PreviewScrollViewController()
+        let viewController = UIHostingController(rootView: PreviewScrollView())
+        viewController.view.backgroundColor = .systemBackground
         viewController.title = title
         viewController.tabBarItem = UITabBarItem(
             title: title,
@@ -34,7 +71,32 @@ final class SampleTabBarController: UITabBarController {
         return viewController
     }
 
-    private func makeAddButton() -> UIButton {
+}
+
+private struct PreviewScrollView: SwiftUI.View {
+    var body: some SwiftUI.View {
+        GeometryReader { geometry in
+            let blockHeight = geometry.size.height * 0.6
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    Color.black
+                        .frame(height: blockHeight)
+                    Color(uiColor: UIColor.systemMint.withAlphaComponent(0.1))
+                        .frame(height: blockHeight)
+                    Color.black
+                        .frame(height: blockHeight)
+                }
+                .frame(width: geometry.size.width)
+            }
+            .background(Color(uiColor: .systemBackground))
+        }
+    }
+}
+
+#if DEBUG
+#Preview("UIView") {
+    SampleTabBarController(accessoryView: {
         let button = UIButton(type: .system)
         var configuration = UIButton.Configuration.plain()
         configuration.cornerStyle = .capsule
@@ -43,64 +105,14 @@ final class SampleTabBarController: UITabBarController {
         button.configuration = configuration
         button.accessibilityLabel = "Add"
         return button
-    }
+    })
 }
 
-private final class PreviewScrollViewController: UIViewController {
-    private let scrollView = UIScrollView()
-    private let stackView = UIStackView()
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        view.backgroundColor = .systemBackground
-        configureScrollView()
-        addPreviewBlocks()
-    }
-
-    private func configureScrollView() {
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = .vertical
-        stackView.spacing = 0
-
-        view.addSubview(scrollView)
-        scrollView.addSubview(stackView)
-
-        NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
-            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
-        ])
-    }
-
-    private func addPreviewBlocks() {
-        [
-            UIColor.black,
-            UIColor.systemMint.withAlphaComponent(0.1),
-            UIColor.black
-        ].forEach { color in
-            let blockView = UIView()
-            blockView.backgroundColor = color
-            blockView.translatesAutoresizingMaskIntoConstraints = false
-            stackView.addArrangedSubview(blockView)
-            blockView.heightAnchor.constraint(
-                equalTo: scrollView.frameLayoutGuide.heightAnchor,
-                multiplier: 0.6
-            ).isActive = true
+#Preview("SwiftUI") {
+    SampleTabBarController {
+        Button {} label: {
+            Image(systemName: "plus")
         }
     }
-}
-
-#if DEBUG
-#Preview("Sample") {
-    SampleTabBarController()
 }
 #endif
