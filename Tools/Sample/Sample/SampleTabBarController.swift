@@ -20,10 +20,7 @@ final class SampleTabBarController: UITabBarController {
             makePreviewTab(title: "Settings", systemImageName: "gearshape")
         ]
 
-        let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: "plus"), for: .normal)
-        button.accessibilityLabel = "Add"
-        accessoryController.setContent(button)
+        accessoryController.setContent(makeAddButton())
     }
 
     private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
@@ -35,6 +32,17 @@ final class SampleTabBarController: UITabBarController {
             selectedImage: nil
         )
         return viewController
+    }
+
+    private func makeAddButton() -> UIButton {
+        let button = UIButton(type: .system)
+        var configuration = UIButton.Configuration.plain()
+        configuration.cornerStyle = .capsule
+        configuration.image = UIImage(systemName: "plus")
+        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
+        button.configuration = configuration
+        button.accessibilityLabel = "Add"
+        return button
     }
 }
 
@@ -90,3 +98,9 @@ private final class PreviewScrollViewController: UIViewController {
         }
     }
 }
+
+#if DEBUG
+#Preview("Sample") {
+    SampleTabBarController()
+}
+#endif
