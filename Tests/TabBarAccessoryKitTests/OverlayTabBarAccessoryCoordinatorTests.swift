@@ -175,6 +175,30 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(abs(hostView.frame.maxY - expectedBottomY) <= 0.5)
     }
 
+    @Test func directHiddenTabBarStateOverridesCachedVisiblePosition() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        let hostView = try #require(contentView.superview)
+        let visibleBottomY = hostView.frame.maxY
+
+        tabBarController.tabBar.isHidden = true
+        coordinator.update(in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+
+        let expectedBottomY = tabBarController.view.safeAreaLayoutGuide.layoutFrame.maxY - 8
+        #expect(abs(hostView.frame.maxY - expectedBottomY) <= 0.5)
+        #expect(hostView.frame.maxY > visibleBottomY)
+    }
+
     @Test func keepsLastVisibleTabBarPositionWhenTabBarFrameLeavesViewBeforeHiddenCallback() throws {
         let tabBarController = makeTestTabBarController()
         let coordinator = OverlayTabBarAccessoryCoordinator()

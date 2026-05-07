@@ -112,8 +112,9 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             position: position
         )
 
-        let width = contentView.widthAnchor.constraint(equalToConstant: contentView.intrinsicContentSize.width)
-        let height = contentView.heightAnchor.constraint(equalToConstant: contentView.intrinsicContentSize.height)
+        let initialSize = resolvedInitialSize(for: contentView, matching: container)
+        let width = contentView.widthAnchor.constraint(equalToConstant: initialSize.width)
+        let height = contentView.heightAnchor.constraint(equalToConstant: initialSize.height)
         var constraints = [
             width,
             height,
@@ -168,6 +169,27 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             contentWidth: width,
             position: position
         )
+    }
+
+    private func resolvedInitialSize(for view: UIView, matching container: UIView) -> CGSize {
+        let intrinsicHeight = view.intrinsicContentSize.height
+        let height: CGFloat
+        if container.bounds.height.isFinite, container.bounds.height > 0 {
+            height = container.bounds.height
+        } else if intrinsicHeight != UIView.noIntrinsicMetric,
+                  intrinsicHeight.isFinite,
+                  intrinsicHeight > 0 {
+            height = intrinsicHeight
+        } else {
+            height = 1
+        }
+        let width = resolvedWidth(
+            for: view,
+            height: height,
+            maximumWidth: TabBarAccessoryContainerSizing.availableWidth(for: container)
+        )
+
+        return CGSize(width: width, height: height)
     }
 
     private func resolvedWidth(for view: UIView, height: CGFloat, maximumWidth: CGFloat) -> CGFloat {

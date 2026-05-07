@@ -39,6 +39,33 @@ struct TabBarAccessoryNativeCoordinatorTests {
         #expect(coordinator.isHidden == false)
     }
 
+    @Test func setAccessoryViewUsesFiniteInitialSizeForContentWithoutIntrinsicSize() throws {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let coordinator = TabBarAccessoryCoordinator()
+        let contentView = NoIntrinsicSizeView()
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        coordinator.update(in: tabBarController)
+
+        let width = try #require(contentView.constraints.first { $0.firstAttribute == .width })
+        let height = try #require(contentView.constraints.first { $0.firstAttribute == .height })
+
+        #expect(width.constant.isFinite)
+        #expect(width.constant > 0)
+        #expect(height.constant.isFinite)
+        #expect(height.constant > 0)
+    }
+
     @Test func setHiddenRemovesAndRestoresBottomAccessory() {
         guard #available(iOS 26.0, *) else {
             return

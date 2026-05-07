@@ -230,6 +230,10 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             tabBarController.tabBar.bounds,
             to: view
         )
+        if tabBarController.tabBar.isHidden {
+            return hiddenTargetBottomY(in: tabBarController)
+        }
+
         if !tabBarFrame.isEmpty,
            tabBarFrame.intersects(view.bounds),
            tabBarFrame.midY > view.bounds.midY {
@@ -242,7 +246,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return lastVisibleBottomY
         }
 
-        if tabBarController.tabBar.isHidden || !tabBarFrame.intersects(view.bounds) {
+        if !tabBarFrame.intersects(view.bounds) {
             return hiddenTargetBottomY(in: tabBarController)
         }
 
