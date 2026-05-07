@@ -219,11 +219,15 @@ import UIKit
 private final class AccessoryContainerView: UIView {}
 
 private final class AccessoryContentView: UIView {
-    override var traitCollection: UITraitCollection {
-        UITraitCollection(traitsFrom: [
-            super.traitCollection,
-            UITraitCollection(tabAccessoryEnvironment: .regular)
-        ])
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+
+        traitOverrides.tabAccessoryEnvironment = .regular
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 }
 
