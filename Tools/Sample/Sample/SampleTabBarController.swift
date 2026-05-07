@@ -11,6 +11,7 @@ import UIKit
 
 final class SampleTabBarController: UITabBarController {
     private var accessoryConfiguration: AccessoryConfiguration
+    private var isAccessoryHidden = false
     private lazy var accessoryController = TabBarAccessoryController(tabBarController: self)
 
     private init(accessoryConfiguration: AccessoryConfiguration) {
@@ -56,6 +57,15 @@ final class SampleTabBarController: UITabBarController {
         applyAccessoryConfigurationIfNeeded()
     }
 
+    func setAccessoryHidden(_ hidden: Bool, animated: Bool = false) {
+        isAccessoryHidden = hidden
+        guard isViewLoaded else {
+            return
+        }
+
+        accessoryController.setHidden(hidden, animated: animated)
+    }
+
     private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
         let viewController = UIHostingController(rootView: PreviewScrollView())
         viewController.view.backgroundColor = .systemBackground
@@ -74,6 +84,7 @@ final class SampleTabBarController: UITabBarController {
         }
 
         accessoryConfiguration.configure(accessoryController)
+        accessoryController.setHidden(isAccessoryHidden)
     }
 }
 
@@ -118,11 +129,16 @@ private struct PreviewScrollView: SwiftUI.View {
 
 #if DEBUG
 private struct SampleTabBarControllerPreview: UIViewControllerRepresentable {
+    let isAccessoryVisible: Bool
+
     func makeUIViewController(context: Context) -> SampleTabBarController {
-        makeInteractivePreviewTabBarController()
+        let tabBarController = makeInteractivePreviewTabBarController()
+        tabBarController.setAccessoryHidden(!isAccessoryVisible)
+        return tabBarController
     }
 
     func updateUIViewController(_ uiViewController: SampleTabBarController, context: Context) {
+        uiViewController.setAccessoryHidden(!isAccessoryVisible, animated: true)
     }
 }
 
@@ -278,7 +294,14 @@ private func makePreviewButton(
 }
 
 #Preview("SwiftUI") {
-    SampleTabBarControllerPreview()
+    @Previewable @State var isAccessoryVisible = true
+
+    SampleTabBarControllerPreview(isAccessoryVisible: isAccessoryVisible)
         .ignoresSafeArea(.all, edges: .vertical)
+        .overlay(alignment: .topTrailing) {
+            Toggle("Accessory", isOn: $isAccessoryVisible)
+                .labelsHidden()
+                .padding()
+        }
 }
 #endif
