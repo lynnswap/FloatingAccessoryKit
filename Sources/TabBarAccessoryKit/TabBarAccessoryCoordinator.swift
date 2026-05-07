@@ -2,7 +2,7 @@ import UIKit
 
 @MainActor
 @available(iOS 26.0, *)
-final class TabBarAccessoryCoordinator {
+final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var contentView: UIView?
     private var tabAccessory: UITabAccessory?
     private var position: TabBarAccessoryController.Position = .trailing

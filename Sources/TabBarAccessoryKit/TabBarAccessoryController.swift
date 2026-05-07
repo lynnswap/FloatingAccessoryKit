@@ -1,7 +1,6 @@
 import UIKit
 
 @MainActor
-@available(iOS 26.0, *)
 public final class TabBarAccessoryController {
     public enum Position: Sendable {
         case leading
@@ -10,10 +9,17 @@ public final class TabBarAccessoryController {
     }
 
     private weak var tabBarController: UITabBarController?
-    private let coordinator = TabBarAccessoryCoordinator()
+    private let coordinator: any TabBarAccessoryCoordinating
 
     public init(tabBarController: UITabBarController) {
         self.tabBarController = tabBarController
+
+        if #available(iOS 26.0, *) {
+            coordinator = TabBarAccessoryCoordinator()
+        } else {
+            coordinator = OverlayTabBarAccessoryCoordinator()
+        }
+
         TabBarAccessoryViewLifecycleHooks.register(coordinator, for: tabBarController)
     }
 
