@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
           - name: iOS 18 latest
-            runner: macos-15
+            runner: macos-26
             ios_major: '18'
             device_name: iPhone 16
           - name: iOS 26 latest
