@@ -117,6 +117,8 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             effect: barBackgroundEffect(in: tabBarController),
             color: barBackgroundColor(in: tabBarController)
         )
+        hostView.alpha = 0
+        hostView.isHidden = true
         hostView.translatesAutoresizingMaskIntoConstraints = false
         tabBarController.view.addSubview(hostView)
         self.hostView = hostView
@@ -326,10 +328,13 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
 
         let generation = advanceTransitionGeneration()
+        let shouldFadeIn = hostView.isHidden || hostView.alpha <= 0.01
         hostView.layer.removeAllAnimations()
         hostView.isHidden = false
         if animated {
-            hostView.alpha = 0
+            if shouldFadeIn {
+                hostView.alpha = 0
+            }
             tabBarController.view.setNeedsLayout()
             tabBarController.view.layoutIfNeeded()
             UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {

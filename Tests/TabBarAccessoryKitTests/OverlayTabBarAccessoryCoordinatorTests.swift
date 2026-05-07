@@ -68,6 +68,33 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(abs(hostView.frame.minX - (safeAreaFrame.minX + 8)) <= 0.5)
     }
 
+    @Test func animatedVisibleUpdateDoesNotFadeExistingHost() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        #expect(hostView.alpha == 1)
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .leading,
+            animated: true,
+            in: tabBarController
+        )
+
+        #expect(hostView.alpha == 1)
+        #expect(hostView.layer.animation(forKey: "opacity") == nil)
+    }
+
     @Test func hiddenAccessoryDoesNotUpdatePositionUntilShownAgain() throws {
         let tabBarController = makeTestTabBarController()
         let coordinator = OverlayTabBarAccessoryCoordinator()

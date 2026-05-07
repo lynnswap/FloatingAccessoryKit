@@ -140,11 +140,15 @@ enum TabBarAccessoryContainerSizing {
                 )
 
                 guard let state = hostState(for: host),
-                      state.accessoryElement == element else {
+                      state.matches(element: element, fallbackElement: fallbackAccessoryElement) else {
                     return systemFrame
                 }
 
                 state.systemFrame = systemFrame
+                if state.accessoryElement == nil,
+                   !systemFrame.isEmpty {
+                    state.accessoryElement = element
+                }
                 return resolvedFrame(from: systemFrame, state: state)
             }
         }
@@ -200,18 +204,23 @@ enum TabBarAccessoryContainerSizing {
         in host: UIView,
         matching container: UIView,
         state: SizingState
-    ) -> Int {
+    ) -> Int? {
         if let accessoryElement = state.accessoryElement {
             return accessoryElement
         }
 
         let containerFrame = host.convert(container.bounds, from: container)
+        guard !containerFrame.isEmpty else {
+            return nil
+        }
+
         for element in 0...8 {
             guard let frame = originalFrameForHostedElement(
                 in: host,
                 element: element,
                 options: 0
-            ) else {
+            ),
+            !frame.isEmpty else {
                 continue
             }
 
@@ -329,6 +338,10 @@ enum TabBarAccessoryContainerSizing {
         var systemFrame: CGRect?
         var position: TabBarAccessoryController.Position = .trailing
         var accessoryElement: Int?
+
+        func matches(element: Int, fallbackElement: Int) -> Bool {
+            accessoryElement == element || (accessoryElement == nil && element == fallbackElement)
+        }
     }
 }
 

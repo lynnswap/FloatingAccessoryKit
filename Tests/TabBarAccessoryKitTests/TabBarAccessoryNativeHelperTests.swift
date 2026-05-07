@@ -114,6 +114,36 @@ struct TabBarAccessoryNativeHelperTests {
         #expect(container.frame == CGRect(x: 56, y: 0, width: 44, height: 48))
     }
 
+    @Test func sizingDefersElementMatchUntilContainerHasBounds() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
+        let container = AccessoryContainerView(frame: .zero)
+        let contentView = AccessoryContentView()
+        host.bind(container)
+
+        TabBarAccessoryContainerSizing.register(
+            container: container,
+            contentView: contentView,
+            position: .trailing
+        )
+        defer {
+            TabBarAccessoryContainerSizing.unregister(container: container)
+        }
+
+        TabBarAccessoryContainerSizing.update(
+            container: container,
+            contentWidth: 44,
+            position: .trailing
+        )
+
+        host.layoutIfNeeded()
+
+        #expect(container.frame == CGRect(x: 56, y: 0, width: 44, height: 48))
+    }
+
     @Test func sizingKeepsSystemFrameWidthForLaterGrowthAndCapsContentWidth() {
         guard #available(iOS 26.0, *) else {
             return
