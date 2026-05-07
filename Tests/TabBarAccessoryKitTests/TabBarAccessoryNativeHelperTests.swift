@@ -309,6 +309,44 @@ struct TabBarAccessoryNativeHelperTests {
         #expect(container.frame == CGRect(x: 56, y: 0, width: 44, height: 48))
     }
 
+    @Test func sizingMirrorsLeadingAndTrailingInRightToLeftLayout() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
+        let container = AccessoryContainerView(frame: host.accessoryFrame)
+        let contentView = AccessoryContentView()
+        host.semanticContentAttribute = .forceRightToLeft
+        container.semanticContentAttribute = .forceRightToLeft
+        host.bind(container)
+
+        TabBarAccessoryContainerSizing.register(
+            container: container,
+            contentView: contentView,
+            position: .leading
+        )
+        defer {
+            TabBarAccessoryContainerSizing.unregister(container: container)
+        }
+
+        TabBarAccessoryContainerSizing.update(
+            container: container,
+            contentWidth: 44,
+            position: .leading
+        )
+        host.layoutIfNeeded()
+        #expect(container.frame == CGRect(x: 56, y: 0, width: 44, height: 48))
+
+        TabBarAccessoryContainerSizing.update(
+            container: container,
+            contentWidth: 44,
+            position: .trailing
+        )
+        host.layoutIfNeeded()
+        #expect(container.frame == CGRect(x: 0, y: 0, width: 44, height: 48))
+    }
+
     @Test func sizingCentersFrameUsingLayoutHostBounds() {
         guard #available(iOS 26.0, *) else {
             return

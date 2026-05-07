@@ -28,6 +28,7 @@ enum TabBarAccessoryContainerSizing {
         state.contentView = contentView
         state.host = host
         state.position = position
+        state.layoutDirection = container.effectiveUserInterfaceLayoutDirection
         state.systemFrame = systemFrame(for: container, in: host, state: state)
         state.accessoryElement = accessoryElement(in: host, matching: container, state: state)
 
@@ -57,6 +58,7 @@ enum TabBarAccessoryContainerSizing {
 
         state.preferredWidth = contentWidth
         state.position = position
+        state.layoutDirection = container.effectiveUserInterfaceLayoutDirection
         requestLayout(for: state)
     }
 
@@ -287,7 +289,7 @@ enum TabBarAccessoryContainerSizing {
         var adjustedFrame = frame
         adjustedFrame.size.width = width
 
-        switch state.position {
+        switch state.resolvedPosition {
         case .leading:
             break
         case .center:
@@ -337,7 +339,16 @@ enum TabBarAccessoryContainerSizing {
         var preferredWidth: CGFloat?
         var systemFrame: CGRect?
         var position: TabBarAccessoryController.Position = .trailing
+        var layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
         var accessoryElement: Int?
+        var resolvedPosition: TabBarAccessoryController.Position {
+            guard position != .center,
+                  layoutDirection == .rightToLeft else {
+                return position
+            }
+
+            return position == .leading ? .trailing : .leading
+        }
 
         func matches(element: Int, fallbackElement: Int) -> Bool {
             accessoryElement == element || (accessoryElement == nil && element == fallbackElement)
