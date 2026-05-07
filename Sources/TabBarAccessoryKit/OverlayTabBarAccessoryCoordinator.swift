@@ -141,8 +141,9 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
 
     private func updateContentViewSize(_ contentView: UIView) -> Bool {
         let size = resolvedSize(for: contentView)
-        return update(widthConstraint, to: size.width)
-            || update(heightConstraint, to: size.height)
+        let didUpdateWidth = update(widthConstraint, to: size.width)
+        let didUpdateHeight = update(heightConstraint, to: size.height)
+        return didUpdateWidth || didUpdateHeight
     }
 
     private func updatePosition(in tabBarController: UITabBarController) -> Bool {
