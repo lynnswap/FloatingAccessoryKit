@@ -9,7 +9,7 @@
 
 - iOS 18.0+
 - iPhone only
-- Swift 6.3
+- Swift 6.2
 
 ## Usage
 
