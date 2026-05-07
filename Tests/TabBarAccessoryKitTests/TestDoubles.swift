@@ -13,6 +13,39 @@ func makeTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) ->
 }
 
 @MainActor
+func makeEmptyTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) -> UITabBarController {
+    let tabBarController = UITabBarController()
+    tabBarController.loadViewIfNeeded()
+    tabBarController.view.frame = CGRect(origin: .zero, size: size)
+    tabBarController.view.setNeedsLayout()
+    tabBarController.view.layoutIfNeeded()
+    return tabBarController
+}
+
+@discardableResult
+@MainActor
+func addTestTabBarButton(
+    height: CGFloat,
+    isHidden: Bool = false,
+    alpha: CGFloat = 1,
+    to tabBarController: UITabBarController
+) -> UIView {
+    guard let buttonClass = NSClassFromString(testTabBarButtonClassName()) as? UIView.Type else {
+        fatalError("UITabBarButton class is unavailable")
+    }
+
+    let button = buttonClass.init(frame: CGRect(x: 0, y: 0, width: 80, height: height))
+    button.isHidden = isHidden
+    button.alpha = alpha
+    tabBarController.tabBar.addSubview(button)
+    return button
+}
+
+private func testTabBarButtonClassName() -> String {
+    ["Button", "Bar", "Tab", "UI"].reversed().joined()
+}
+
+@MainActor
 func constraintIDs(in views: [UIView]) -> Set<ObjectIdentifier> {
     Set(views.flatMap(\.constraints).map { ObjectIdentifier($0) })
 }
@@ -92,6 +125,8 @@ final class NoIntrinsicSizeView: UIView {
         .zero
     }
 }
+
+final class LookalikeTabBarButton: UIControl {}
 
 final class AccessoryContainerView: UIView {}
 

@@ -300,8 +300,9 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(hostView.isHidden == false)
     }
 
-    @Test func usesMinimumSizeAndExpandsToContentAspectRatio() throws {
-        let tabBarController = makeTestTabBarController()
+    @Test func usesTabBarButtonHeightAndExpandsToContentAspectRatio() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        addTestTabBarButton(height: 64, to: tabBarController)
         let coordinator = OverlayTabBarAccessoryCoordinator()
         let squareContentView = FixedSizeView(size: CGSize(width: 44, height: 44))
         let wideContentView = FixedSizeView(size: CGSize(width: 96, height: 48))
@@ -314,7 +315,7 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         )
         tabBarController.view.layoutIfNeeded()
 
-        #expect(try #require(squareContentView.superview).bounds.size == CGSize(width: 48, height: 48))
+        #expect(try #require(squareContentView.superview).bounds.size == CGSize(width: 64, height: 64))
 
         coordinator.setAccessoryView(
             wideContentView,
@@ -324,13 +325,84 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         )
         tabBarController.view.layoutIfNeeded()
 
-        #expect(try #require(wideContentView.superview).bounds.size == CGSize(width: 96, height: 48))
+        #expect(try #require(wideContentView.superview).bounds.size == CGSize(width: 128, height: 64))
     }
 
-    @Test func fallsBackToMinimumSquareSizeForContentWithoutPreferredSize() throws {
-        let tabBarController = makeTestTabBarController()
+    @Test func usesTabBarButtonHeightForContentWithoutPreferredSize() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        addTestTabBarButton(height: 64, to: tabBarController)
         let coordinator = OverlayTabBarAccessoryCoordinator()
         let contentView = NoIntrinsicSizeView()
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(try #require(contentView.superview).bounds.size == CGSize(width: 64, height: 64))
+    }
+
+    @Test func ignoresHiddenAndTransparentTabBarButtonHeightCandidates() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        addTestTabBarButton(height: 96, isHidden: true, to: tabBarController)
+        addTestTabBarButton(height: 88, alpha: 0, to: tabBarController)
+        addTestTabBarButton(height: 64, to: tabBarController)
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = NoIntrinsicSizeView()
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(try #require(contentView.superview).bounds.size == CGSize(width: 64, height: 64))
+    }
+
+    @Test func ignoresLookalikeTabBarButtonClassNames() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        let lookalikeButton = LookalikeTabBarButton(frame: CGRect(x: 0, y: 0, width: 80, height: 96))
+        tabBarController.tabBar.addSubview(lookalikeButton)
+        addTestTabBarButton(height: 64, to: tabBarController)
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = NoIntrinsicSizeView()
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(try #require(contentView.superview).bounds.size == CGSize(width: 64, height: 64))
+    }
+
+    @Test func fallsBackToFallbackSquareSizeWithoutPreferredSizeOrTabBarButtons() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = NoIntrinsicSizeView()
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(try #require(contentView.superview).bounds.size == CGSize(width: 48, height: 48))
+    }
+
+    @Test func usesFallbackMinimumForSmallIntrinsicHeightWithoutTabBarButtons() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 24, height: 24))
 
         coordinator.setAccessoryView(
             contentView,
@@ -364,7 +436,8 @@ struct OverlayTabBarAccessoryCoordinatorTests {
     }
 
     @Test func updateRefreshesSizeForExistingContentView() throws {
-        let tabBarController = makeTestTabBarController()
+        let tabBarController = makeEmptyTestTabBarController()
+        let tabBarButton = addTestTabBarButton(height: 64, to: tabBarController)
         let coordinator = OverlayTabBarAccessoryCoordinator()
         let contentView = MutableSizeView(size: CGSize(width: 44, height: 44))
 
@@ -376,14 +449,20 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         )
         tabBarController.view.layoutIfNeeded()
         let hostView = try #require(contentView.superview)
-        #expect(hostView.bounds.size == CGSize(width: 48, height: 48))
+        #expect(hostView.bounds.size == CGSize(width: 64, height: 64))
 
-        contentView.size = CGSize(width: 120, height: 60)
+        contentView.size = CGSize(width: 120, height: 80)
         coordinator.update(in: tabBarController)
         tabBarController.view.layoutIfNeeded()
 
         #expect(contentView.superview === hostView)
-        #expect(hostView.bounds.size == CGSize(width: 120, height: 60))
+        #expect(hostView.bounds.size == CGSize(width: 96, height: 64))
+
+        tabBarButton.frame.size.height = 32
+        coordinator.update(in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(hostView.bounds.size == CGSize(width: 48, height: 32))
     }
 
     @Test func usesTabBarAppearanceBackground() throws {
@@ -440,7 +519,8 @@ struct OverlayTabBarAccessoryCoordinatorTests {
     }
 
     @Test func replacesContentViewWithoutLeavingOldSuperview() throws {
-        let tabBarController = makeTestTabBarController()
+        let tabBarController = makeEmptyTestTabBarController()
+        addTestTabBarButton(height: 64, to: tabBarController)
         let coordinator = OverlayTabBarAccessoryCoordinator()
         let firstView = FixedSizeView(size: CGSize(width: 44, height: 44))
         let secondView = FixedSizeView(size: CGSize(width: 88, height: 44))
@@ -461,7 +541,7 @@ struct OverlayTabBarAccessoryCoordinatorTests {
 
         #expect(firstView.superview == nil)
         #expect(firstView.translatesAutoresizingMaskIntoConstraints == true)
-        #expect(try #require(secondView.superview).bounds.size == CGSize(width: 96, height: 48))
+        #expect(try #require(secondView.superview).bounds.size == CGSize(width: 128, height: 64))
         #expect(constraintsReferencing(firstView, in: [tabBarController.view, try #require(secondView.superview)]).isEmpty)
     }
 
