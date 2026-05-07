@@ -50,11 +50,12 @@ final class TabBarAccessoryCoordinator {
             return
         }
 
-        isHidden = hidden
         if hidden {
-            unbindContentViewConstraints()
+            update(in: tabBarController)
+            isHidden = true
             tabBarController.setBottomAccessory(nil, animated: animated)
         } else {
+            isHidden = false
             tabBarController.setBottomAccessory(tabAccessory, animated: animated)
             update(in: tabBarController)
         }
