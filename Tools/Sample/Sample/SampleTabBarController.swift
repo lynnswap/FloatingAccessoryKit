@@ -67,7 +67,7 @@ final class SampleTabBarController: UITabBarController {
     }
 
     private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
-        let viewController = UIHostingController(rootView: PreviewScrollView())
+        let viewController = UIHostingController(rootView: SampleScrollView())
         viewController.view.backgroundColor = .systemBackground
         viewController.title = title
         viewController.tabBarItem = UITabBarItem(
@@ -106,9 +106,9 @@ private struct AccessoryConfiguration {
     }
 }
 
-private struct PreviewScrollView: SwiftUI.View {
-    var body: some SwiftUI.View {
-        let blockHeight:CGFloat = 400
+private struct SampleScrollView: View {
+    var body: some View {
+        let blockHeight: CGFloat = 400
 
         ScrollView {
             VStack(spacing: 0) {
@@ -123,109 +123,137 @@ private struct PreviewScrollView: SwiftUI.View {
     }
 }
 
-#if DEBUG
-private enum PreviewAccessoryPosition: String, CaseIterable, Identifiable {
-    case leading
-    case center
-    case trailing
-
-    var id: Self { self }
-
-    var tabBarAccessoryPosition: TabBarAccessoryController.Position {
-        switch self {
-        case .leading:
-            .leading
-        case .center:
-            .center
-        case .trailing:
-            .trailing
-        }
-    }
-}
-
-private struct SampleTabBarControllerPreview: UIViewControllerRepresentable {
-    let isAccessoryVisible: Bool
-    let accessoryPosition: PreviewAccessoryPosition
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    func makeUIViewController(context: Context) -> SampleTabBarController {
-        let coordinator = context.coordinator
-        coordinator.accessoryPosition = accessoryPosition.tabBarAccessoryPosition
-
-        let tabBarController = makeInteractivePreviewTabBarController(
-            accessoryView: coordinator.accessoryView,
-            accessoryPosition: accessoryPosition.tabBarAccessoryPosition
-        )
-        coordinator.tabBarController = tabBarController
-        coordinator.accessoryView.onContentSizeChange = { [weak coordinator] in
-            coordinator?.updateAccessorySize()
-        }
-        tabBarController.setAccessoryHidden(!isAccessoryVisible)
-        return tabBarController
-    }
-
-    func updateUIViewController(_ uiViewController: SampleTabBarController, context: Context) {
-        context.coordinator.accessoryPosition = accessoryPosition.tabBarAccessoryPosition
-        uiViewController.setAccessory(
-            context.coordinator.accessoryView,
-            position: accessoryPosition.tabBarAccessoryPosition,
-            animated: true
-        )
-        uiViewController.setAccessoryHidden(!isAccessoryVisible, animated: true)
-    }
-
-    @MainActor
-    final class Coordinator {
-        let accessoryView = PreviewAccessoryView()
-        weak var tabBarController: SampleTabBarController?
-        var accessoryPosition: TabBarAccessoryController.Position = .trailing
-
-        func updateAccessorySize() {
-            guard let tabBarController else {
-                return
-            }
-
-            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
-                tabBarController.setAccessory(
-                    self.accessoryView,
-                    position: self.accessoryPosition,
-                    animated: true
-                )
-                tabBarController.view.layoutIfNeeded()
-            }
-        }
-    }
-}
-
-private func makeInteractivePreviewTabBarController(
-    accessoryView: PreviewAccessoryView = PreviewAccessoryView(),
-    accessoryPosition: TabBarAccessoryController.Position = .trailing
-) -> SampleTabBarController {
-    let tabBarController = SampleTabBarController(
-        accessoryView: accessoryView,
-        accessoryPosition: accessoryPosition
+final class SampleTabBarAccessoryDemoNavigationController: UINavigationController {
+    private let positionControl = UISegmentedControl(
+        items: ["leading", "center", "trailing"]
     )
-    accessoryView.onContentSizeChange = { [weak tabBarController, weak accessoryView] in
-        guard let tabBarController, let accessoryView else {
+    private let accessoryVisibilitySwitch = UISwitch()
+    private let accessoryView: SampleAccessoryView
+    private let sampleTabBarController: SampleTabBarController
+
+    private var accessoryPosition: TabBarAccessoryController.Position
+    private var isAccessoryHidden: Bool
+
+    init(
+        accessoryPosition: TabBarAccessoryController.Position = .trailing,
+        isAccessoryHidden: Bool = false
+    ) {
+        let accessoryView = SampleAccessoryView()
+        self.accessoryPosition = accessoryPosition
+        self.isAccessoryHidden = isAccessoryHidden
+        self.accessoryView = accessoryView
+        self.sampleTabBarController = SampleTabBarController(
+            accessoryView: accessoryView,
+            accessoryPosition: accessoryPosition
+        )
+
+        super.init(rootViewController: sampleTabBarController)
+
+        configureNavigationItem()
+        accessoryView.onContentSizeChange = { [weak self] in
+            self?.updateAccessorySize()
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        sampleTabBarController.setAccessoryHidden(isAccessoryHidden)
+    }
+
+    private func configureNavigationItem() {
+        positionControl.selectedSegmentIndex = segmentIndex(for: accessoryPosition)
+        positionControl.addAction(
+            UIAction { [weak self] _ in
+                self?.accessoryPositionDidChange()
+            },
+            for: .valueChanged
+        )
+
+        accessoryVisibilitySwitch.isOn = !isAccessoryHidden
+        accessoryVisibilitySwitch.accessibilityLabel = "Accessory"
+        accessoryVisibilitySwitch.addAction(
+            UIAction { [weak self] _ in
+                self?.accessoryVisibilityDidChange()
+            },
+            for: .valueChanged
+        )
+
+        sampleTabBarController.navigationItem.titleView = positionControl
+        sampleTabBarController.navigationItem.rightBarButtonItem = UIBarButtonItem(
+            customView: accessoryVisibilitySwitch
+        )
+    }
+
+    private func accessoryPositionDidChange() {
+        accessoryPosition = selectedAccessoryPosition()
+        updateAccessory(animated: true)
+    }
+
+    private func accessoryVisibilityDidChange() {
+        isAccessoryHidden = !accessoryVisibilitySwitch.isOn
+        sampleTabBarController.setAccessoryHidden(isAccessoryHidden, animated: true)
+    }
+
+    private func updateAccessorySize() {
+        updateAccessory(animated: true)
+    }
+
+    private func updateAccessory(animated: Bool) {
+        let animations = {
+            self.sampleTabBarController.setAccessory(
+                self.accessoryView,
+                position: self.accessoryPosition,
+                animated: animated
+            )
+            self.sampleTabBarController.setAccessoryHidden(
+                self.isAccessoryHidden,
+                animated: animated
+            )
+            self.sampleTabBarController.view.layoutIfNeeded()
+        }
+
+        guard animated else {
+            animations()
             return
         }
 
         UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
-            tabBarController.setAccessory(
-                accessoryView,
-                position: accessoryPosition,
-                animated: true
-            )
-            tabBarController.view.layoutIfNeeded()
+            animations()
         }
     }
-    return tabBarController
+
+    private func selectedAccessoryPosition() -> TabBarAccessoryController.Position {
+        switch positionControl.selectedSegmentIndex {
+        case 0:
+            .leading
+        case 1:
+            .center
+        case 2:
+            .trailing
+        default:
+            accessoryPosition
+        }
+    }
+
+    private func segmentIndex(for position: TabBarAccessoryController.Position) -> Int {
+        switch position {
+        case .leading:
+            0
+        case .center:
+            1
+        case .trailing:
+            2
+        }
+    }
 }
 
-private final class PreviewAccessoryView: UIStackView {
+private final class SampleAccessoryView: UIStackView {
     private static let minimumButtonLength: CGFloat = 44
 
     private let minusButtonStack = UIStackView()
@@ -268,7 +296,7 @@ private final class PreviewAccessoryView: UIStackView {
     }
 
     private func makeAddButton() -> UIButton {
-        makePreviewButton(
+        makeAccessoryButton(
             systemImageName: "plus",
             accessibilityLabel: "Add"
         ) { [weak self] in
@@ -277,7 +305,7 @@ private final class PreviewAccessoryView: UIStackView {
     }
 
     private func makeRemoveButton() -> UIButton {
-        let button = makePreviewButton(
+        let button = makeAccessoryButton(
             systemImageName: "minus",
             accessibilityLabel: "Remove"
         )
@@ -325,7 +353,7 @@ private final class PreviewAccessoryView: UIStackView {
     }
 }
 
-private func makePreviewButton(
+private func makeAccessoryButton(
     systemImageName: String,
     accessibilityLabel: String,
     action: (@MainActor () -> Void)? = nil
@@ -353,36 +381,8 @@ private func makePreviewButton(
     return button
 }
 
-#Preview("UIKit") {
-    makeInteractivePreviewTabBarController()
-}
-
-#Preview("SwiftUI") {
-    @Previewable @State var isAccessoryVisible = true
-    @Previewable @State var accessoryPosition = PreviewAccessoryPosition.trailing
-
-    SampleTabBarControllerPreview(
-        isAccessoryVisible: isAccessoryVisible,
-        accessoryPosition: accessoryPosition
-    )
-    .ignoresSafeArea(.all, edges: .vertical)
-    .overlay(alignment: .top) {
-        VStack{
-            Picker("Position", selection: $accessoryPosition) {
-                ForEach(PreviewAccessoryPosition.allCases) { position in
-                    Text(position.rawValue).tag(position)
-                }
-            }
-            .pickerStyle(.segmented)
-            Toggle("Accessory", isOn: $isAccessoryVisible)
-        }
-        .padding()
-        .background{
-            Rectangle()
-                .fill(.regularMaterial)
-                .clipShape(.rect(cornerRadius: 12))
-        }
-        .padding()
-    }
+#if DEBUG
+#Preview {
+    SampleTabBarAccessoryDemoNavigationController()
 }
 #endif
