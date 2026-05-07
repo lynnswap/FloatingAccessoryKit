@@ -108,21 +108,17 @@ private struct AccessoryConfiguration {
 
 private struct PreviewScrollView: SwiftUI.View {
     var body: some SwiftUI.View {
-        GeometryReader { geometry in
-            let blockHeight = geometry.size.height * 0.6
+        let blockHeight:CGFloat = 400
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    Color.black
-                        .frame(height: blockHeight)
-                    Color(uiColor: UIColor.systemMint.withAlphaComponent(0.1))
-                        .frame(height: blockHeight)
-                    Color.black
-                        .frame(height: blockHeight)
-                }
-                .frame(width: geometry.size.width)
+        ScrollView {
+            VStack(spacing: 0) {
+                Color.black
+                    .frame(height: blockHeight)
+                Color.mint.opacity(0.1)
+                    .frame(height: blockHeight)
+                Color.black
+                    .frame(height: blockHeight)
             }
-            .background(Color(uiColor: .systemBackground))
         }
     }
 }
