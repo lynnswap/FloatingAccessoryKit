@@ -124,23 +124,90 @@ private struct PreviewScrollView: SwiftUI.View {
 }
 
 #if DEBUG
+private enum PreviewAccessoryPosition: String, CaseIterable, Identifiable {
+    case leading
+    case center
+    case trailing
+
+    var id: Self { self }
+
+    var tabBarAccessoryPosition: TabBarAccessoryController.Position {
+        switch self {
+        case .leading:
+            .leading
+        case .center:
+            .center
+        case .trailing:
+            .trailing
+        }
+    }
+}
+
 private struct SampleTabBarControllerPreview: UIViewControllerRepresentable {
     let isAccessoryVisible: Bool
+    let accessoryPosition: PreviewAccessoryPosition
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
 
     func makeUIViewController(context: Context) -> SampleTabBarController {
-        let tabBarController = makeInteractivePreviewTabBarController()
+        let coordinator = context.coordinator
+        coordinator.accessoryPosition = accessoryPosition.tabBarAccessoryPosition
+
+        let tabBarController = makeInteractivePreviewTabBarController(
+            accessoryView: coordinator.accessoryView,
+            accessoryPosition: accessoryPosition.tabBarAccessoryPosition
+        )
+        coordinator.tabBarController = tabBarController
+        coordinator.accessoryView.onContentSizeChange = { [weak coordinator] in
+            coordinator?.updateAccessorySize()
+        }
         tabBarController.setAccessoryHidden(!isAccessoryVisible)
         return tabBarController
     }
 
     func updateUIViewController(_ uiViewController: SampleTabBarController, context: Context) {
+        context.coordinator.accessoryPosition = accessoryPosition.tabBarAccessoryPosition
+        uiViewController.setAccessory(
+            context.coordinator.accessoryView,
+            position: accessoryPosition.tabBarAccessoryPosition,
+            animated: true
+        )
         uiViewController.setAccessoryHidden(!isAccessoryVisible, animated: true)
+    }
+
+    @MainActor
+    final class Coordinator {
+        let accessoryView = PreviewAccessoryView()
+        weak var tabBarController: SampleTabBarController?
+        var accessoryPosition: TabBarAccessoryController.Position = .trailing
+
+        func updateAccessorySize() {
+            guard let tabBarController else {
+                return
+            }
+
+            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
+                tabBarController.setAccessory(
+                    self.accessoryView,
+                    position: self.accessoryPosition,
+                    animated: true
+                )
+                tabBarController.view.layoutIfNeeded()
+            }
+        }
     }
 }
 
-private func makeInteractivePreviewTabBarController() -> SampleTabBarController {
-    let accessoryView = PreviewAccessoryView()
-    let tabBarController = SampleTabBarController(accessoryView: accessoryView)
+private func makeInteractivePreviewTabBarController(
+    accessoryView: PreviewAccessoryView = PreviewAccessoryView(),
+    accessoryPosition: TabBarAccessoryController.Position = .trailing
+) -> SampleTabBarController {
+    let tabBarController = SampleTabBarController(
+        accessoryView: accessoryView,
+        accessoryPosition: accessoryPosition
+    )
     accessoryView.onContentSizeChange = { [weak tabBarController, weak accessoryView] in
         guard let tabBarController, let accessoryView else {
             return
@@ -149,6 +216,7 @@ private func makeInteractivePreviewTabBarController() -> SampleTabBarController 
         UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
             tabBarController.setAccessory(
                 accessoryView,
+                position: accessoryPosition,
                 animated: true
             )
             tabBarController.view.layoutIfNeeded()
@@ -291,13 +359,30 @@ private func makePreviewButton(
 
 #Preview("SwiftUI") {
     @Previewable @State var isAccessoryVisible = true
+    @Previewable @State var accessoryPosition = PreviewAccessoryPosition.trailing
 
-    SampleTabBarControllerPreview(isAccessoryVisible: isAccessoryVisible)
-        .ignoresSafeArea(.all, edges: .vertical)
-        .overlay(alignment: .topTrailing) {
+    SampleTabBarControllerPreview(
+        isAccessoryVisible: isAccessoryVisible,
+        accessoryPosition: accessoryPosition
+    )
+    .ignoresSafeArea(.all, edges: .vertical)
+    .overlay(alignment: .top) {
+        VStack{
+            Picker("Position", selection: $accessoryPosition) {
+                ForEach(PreviewAccessoryPosition.allCases) { position in
+                    Text(position.rawValue).tag(position)
+                }
+            }
+            .pickerStyle(.segmented)
             Toggle("Accessory", isOn: $isAccessoryVisible)
-                .labelsHidden()
-                .padding()
         }
+        .padding()
+        .background{
+            Rectangle()
+                .fill(.regularMaterial)
+                .clipShape(.rect(cornerRadius: 12))
+        }
+        .padding()
+    }
 }
 #endif
