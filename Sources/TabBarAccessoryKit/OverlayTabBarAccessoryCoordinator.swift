@@ -20,6 +20,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var lastVisibleBottomY: CGFloat?
     private var isTabBarHidden = false
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
+    private var transitionGeneration = 0
 
     private(set) var isHidden = false
 
@@ -172,12 +173,13 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         animated: Bool,
         in tabBarController: UITabBarController
     ) {
+        isTabBarHidden = hidden
+
         guard !isHidden,
               contentView != nil else {
             return
         }
 
-        isTabBarHidden = hidden
         guard animated else {
             update(in: tabBarController)
             tabBarController.view.layoutIfNeeded()
@@ -323,12 +325,18 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return
         }
 
+        let generation = advanceTransitionGeneration()
+        hostView.layer.removeAllAnimations()
         hostView.isHidden = false
         if animated {
             hostView.alpha = 0
             tabBarController.view.setNeedsLayout()
             tabBarController.view.layoutIfNeeded()
             UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
+                guard self.transitionGeneration == generation else {
+                    return
+                }
+
                 hostView.alpha = 1
                 tabBarController.view.setNeedsLayout()
                 tabBarController.view.layoutIfNeeded()
@@ -345,12 +353,20 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return
         }
 
+        let generation = advanceTransitionGeneration()
+        hostView.layer.removeAllAnimations()
         let animations = {
             hostView.alpha = 0
             tabBarController.view.setNeedsLayout()
             tabBarController.view.layoutIfNeeded()
         }
         let completion: (Bool) -> Void = { _ in
+            guard self.transitionGeneration == generation,
+                  self.hostView === hostView,
+                  self.isHidden else {
+                return
+            }
+
             hostView.isHidden = true
         }
 
@@ -373,25 +389,40 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return
         }
 
+        let generation = advanceTransitionGeneration()
+        let removedHostView = hostView
+        let removedContentConstraints = contentConstraints
+        let removedHorizontalConstraint = horizontalConstraint
+        let removedBottomConstraint = bottomConstraint
+        let removedWidthConstraint = widthConstraint
+        let removedHeightConstraint = heightConstraint
+        let removedOriginalTranslatesAutoresizingMaskIntoConstraints = originalTranslatesAutoresizingMaskIntoConstraints
+        removedHostView?.layer.removeAllAnimations()
+
         let cleanup = {
-            NSLayoutConstraint.deactivate(self.contentConstraints)
+            guard self.transitionGeneration == generation,
+                  self.contentView === contentView,
+                  self.hostView === removedHostView else {
+                return
+            }
+
+            NSLayoutConstraint.deactivate(removedContentConstraints)
             self.contentConstraints.removeAll()
-            self.horizontalConstraint?.isActive = false
-            self.bottomConstraint?.isActive = false
-            self.widthConstraint?.isActive = false
-            self.heightConstraint?.isActive = false
+            removedHorizontalConstraint?.isActive = false
+            removedBottomConstraint?.isActive = false
+            removedWidthConstraint?.isActive = false
+            removedHeightConstraint?.isActive = false
             self.horizontalConstraint = nil
             self.bottomConstraint = nil
             self.widthConstraint = nil
             self.heightConstraint = nil
             self.constrainedPosition = nil
             self.lastVisibleBottomY = nil
-            self.isTabBarHidden = false
-            if let originalTranslatesAutoresizingMaskIntoConstraints = self.originalTranslatesAutoresizingMaskIntoConstraints {
+            if let originalTranslatesAutoresizingMaskIntoConstraints = removedOriginalTranslatesAutoresizingMaskIntoConstraints {
                 contentView.translatesAutoresizingMaskIntoConstraints = originalTranslatesAutoresizingMaskIntoConstraints
             }
             contentView.removeFromSuperview()
-            self.hostView?.removeFromSuperview()
+            removedHostView?.removeFromSuperview()
             self.hostView = nil
             self.contentView = nil
             self.originalTranslatesAutoresizingMaskIntoConstraints = nil
@@ -404,6 +435,10 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
 
         UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
+            guard self.transitionGeneration == generation else {
+                return
+            }
+
             hostView.alpha = 0
             tabBarController.view.setNeedsLayout()
             tabBarController.view.layoutIfNeeded()
@@ -423,6 +458,11 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
 
         constraint.constant = constant
         return true
+    }
+
+    private func advanceTransitionGeneration() -> Int {
+        transitionGeneration += 1
+        return transitionGeneration
     }
 }
 

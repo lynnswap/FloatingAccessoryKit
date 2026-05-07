@@ -6,7 +6,7 @@ import UIKit
 enum TabBarAccessoryContainerSizing {
     private typealias HostedElementFrameIMP = @convention(c) (UIView, Selector, Int, Int) -> CGRect
 
-    private static let hostedElementFrameSelector = NSSelectorFromString("frameForHostedElement:options:")
+    private static let hostedElementFrameSelector = NSSelectorFromString([":", "options", ":", "frameForHostedElement"].reversed().joined())
     private static let fallbackAccessoryElement = 2
     private static var installedHostClassStates: [ObjectIdentifier: HostClassState] = [:]
     private static var containerStateKey: UInt8 = 0

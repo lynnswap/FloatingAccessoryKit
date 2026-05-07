@@ -178,6 +178,57 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(coordinator.isHidden == true)
     }
 
+    @Test func remembersHiddenTabBarBeforeContentIsInstalled() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.tabBarVisibilityDidChange(
+            hidden: true,
+            animated: false,
+            in: tabBarController
+        )
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let expectedBottomY = tabBarController.view.safeAreaLayoutGuide.layoutFrame.maxY - 8
+
+        #expect(abs(hostView.frame.maxY - expectedBottomY) <= 0.5)
+    }
+
+    @Test func remembersHiddenTabBarWhileAccessoryIsHidden() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        coordinator.setHidden(true, animated: false, in: tabBarController)
+        coordinator.tabBarVisibilityDidChange(
+            hidden: true,
+            animated: false,
+            in: tabBarController
+        )
+        coordinator.setHidden(false, animated: false, in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let expectedBottomY = tabBarController.view.safeAreaLayoutGuide.layoutFrame.maxY - 8
+
+        #expect(abs(hostView.frame.maxY - expectedBottomY) <= 0.5)
+        #expect(hostView.isHidden == false)
+    }
+
     @Test func usesMinimumSizeAndExpandsToContentAspectRatio() throws {
         let tabBarController = makeTestTabBarController()
         let coordinator = OverlayTabBarAccessoryCoordinator()
@@ -368,7 +419,7 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(constraintsReferencing(contentView, in: [hostView]).isEmpty)
     }
 
-    @Test func animatedHideAndShowKeepHostForReuse() throws {
+    @Test func animatedHideAndShowKeepHostForReuse() async throws {
         let tabBarController = makeTestTabBarController()
         let coordinator = OverlayTabBarAccessoryCoordinator()
         let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
@@ -384,8 +435,42 @@ struct OverlayTabBarAccessoryCoordinatorTests {
 
         coordinator.setHidden(true, animated: true, in: tabBarController)
         coordinator.setHidden(false, animated: true, in: tabBarController)
+        try await Task.sleep(for: .milliseconds(350))
 
         #expect(contentView.superview === hostView)
+        #expect(coordinator.isHidden == false)
+        #expect(hostView.isHidden == false)
+        #expect(abs(hostView.alpha - 1) <= 0.01)
+    }
+
+    @Test func animatedRemovalCompletionDoesNotClearReplacementContent() async throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let firstView = FixedSizeView(size: CGSize(width: 44, height: 44))
+        let secondView = FixedSizeView(size: CGSize(width: 88, height: 44))
+
+        coordinator.setAccessoryView(
+            firstView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        coordinator.setAccessoryView(nil, position: .trailing, animated: true, in: tabBarController)
+        coordinator.setAccessoryView(
+            secondView,
+            position: .leading,
+            animated: false,
+            in: tabBarController
+        )
+        try await Task.sleep(for: .milliseconds(350))
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(secondView.superview)
+        let safeAreaFrame = tabBarController.view.safeAreaLayoutGuide.layoutFrame
+
+        #expect(firstView.superview == nil)
+        #expect(hostView.superview === tabBarController.view)
+        #expect(abs(hostView.frame.minX - (safeAreaFrame.minX + 8)) <= 0.5)
         #expect(coordinator.isHidden == false)
     }
 }

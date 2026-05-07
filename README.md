@@ -2,9 +2,13 @@
 
 `TabBarAccessoryKit` adds a UIKit `UIView` accessory to a `UITabBarController`.
 
+> [!WARNING]
+> This package relies on undocumented APIs and runtime behavior, so extra care is needed before using it in App Store-bound projects.
+
 ## Requirements
 
 - iOS 18.0+
+- iPhone only
 - Swift 6.3
 
 ## Usage
