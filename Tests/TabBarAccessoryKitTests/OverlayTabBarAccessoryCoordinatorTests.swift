@@ -155,6 +155,26 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(hostView.frame.maxY > visibleBottomY)
     }
 
+    @Test func infersHiddenTabBarWhenFirstLayoutSeesOffscreenTabBar() throws {
+        let tabBarController = makeTestTabBarController()
+        tabBarController.tabBar.frame.origin.y = tabBarController.view.bounds.maxY + 100
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let expectedBottomY = tabBarController.view.safeAreaLayoutGuide.layoutFrame.maxY - 8
+
+        #expect(abs(hostView.frame.maxY - expectedBottomY) <= 0.5)
+    }
+
     @Test func keepsLastVisibleTabBarPositionWhenTabBarFrameLeavesViewBeforeHiddenCallback() throws {
         let tabBarController = makeTestTabBarController()
         let coordinator = OverlayTabBarAccessoryCoordinator()
@@ -297,6 +317,26 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         tabBarController.view.layoutIfNeeded()
 
         #expect(try #require(contentView.superview).bounds.size == CGSize(width: 48, height: 48))
+    }
+
+    @Test func clampsWidthToSafeAreaMargins() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 1000, height: 48))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let safeAreaFrame = tabBarController.view.safeAreaLayoutGuide.layoutFrame
+
+        #expect(abs(hostView.bounds.width - (safeAreaFrame.width - 16)) <= 0.5)
+        #expect(abs(hostView.frame.maxX - (safeAreaFrame.maxX - 8)) <= 0.5)
     }
 
     @Test func updateRefreshesSizeForExistingContentView() throws {

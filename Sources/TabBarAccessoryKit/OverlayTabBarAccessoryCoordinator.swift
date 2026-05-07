@@ -80,7 +80,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             effect: barBackgroundEffect(in: tabBarController),
             color: barBackgroundColor(in: tabBarController)
         )
-        let didUpdateSize = updateContentViewSize(contentView)
+        let didUpdateSize = updateContentViewSize(contentView, in: tabBarController)
         let didUpdatePosition = updatePosition(in: tabBarController)
         if let hostView {
             tabBarController.view.bringSubviewToFront(hostView)
@@ -142,8 +142,8 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
     }
 
-    private func updateContentViewSize(_ contentView: UIView) -> Bool {
-        let size = resolvedSize(for: contentView)
+    private func updateContentViewSize(_ contentView: UIView, in tabBarController: UITabBarController) -> Bool {
+        let size = resolvedSize(for: contentView, in: tabBarController)
         let didUpdateWidth = update(widthConstraint, to: size.width)
         let didUpdateHeight = update(heightConstraint, to: size.height)
         return didUpdateWidth || didUpdateHeight
@@ -242,6 +242,10 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return lastVisibleBottomY
         }
 
+        if tabBarController.tabBar.isHidden || !tabBarFrame.intersects(view.bounds) {
+            return hiddenTargetBottomY(in: tabBarController)
+        }
+
         let tabBarHeight = tabBarController.tabBar.bounds.height
         guard tabBarHeight.isFinite,
               tabBarHeight > 0 else {
@@ -276,7 +280,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             ?? tabBarController.tabBar.scrollEdgeAppearance?.backgroundColor
     }
 
-    private func resolvedSize(for view: UIView) -> CGSize {
+    private func resolvedSize(for view: UIView, in tabBarController: UITabBarController) -> CGSize {
         let targetHeight = max(
             preferredDimension(view.intrinsicContentSize.height) ?? Metrics.minimumLength,
             Metrics.minimumLength
@@ -296,7 +300,23 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             ?? preferredWidth(forHeight: targetHeight, fittingSize: intrinsicSize)
             ?? targetHeight
 
-        return CGSize(width: max(width, targetHeight), height: targetHeight)
+        return CGSize(
+            width: min(max(width, targetHeight), maximumWidth(in: tabBarController)),
+            height: targetHeight
+        )
+    }
+
+    private func maximumWidth(in tabBarController: UITabBarController) -> CGFloat {
+        let safeAreaWidth = tabBarController.view.safeAreaLayoutGuide.layoutFrame.width
+        let viewWidth = tabBarController.view.bounds.width
+        let width = safeAreaWidth.isFinite && safeAreaWidth > 0 ? safeAreaWidth : viewWidth
+        let availableWidth = width - Metrics.horizontalMargin * 2
+        guard availableWidth.isFinite,
+              availableWidth > 0 else {
+            return Metrics.minimumLength
+        }
+
+        return max(availableWidth, Metrics.minimumLength)
     }
 
     private func preferredDimension(_ value: CGFloat) -> CGFloat? {
