@@ -62,31 +62,3 @@ func scrollViewDidScroll(_ scrollView: UIScrollView) {
     setTabBarHidden(shouldHideTabBar, animated: true)
 }
 ```
-
-## API
-
-```swift
-@MainActor
-public final class TabBarAccessoryController {
-    public enum Position: Sendable {
-        case leading
-        case center
-        case trailing
-    }
-
-    public init(tabBarController: UITabBarController)
-
-    public var isHidden: Bool { get }
-
-    public func setContent(
-        _ view: UIView?,
-        position: Position = .trailing,
-        animated: Bool = false
-    )
-
-    public func setHidden(
-        _ hidden: Bool,
-        animated: Bool = false
-    )
-}
-```
