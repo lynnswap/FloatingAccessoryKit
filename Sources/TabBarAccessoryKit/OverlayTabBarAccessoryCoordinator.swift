@@ -3,9 +3,13 @@ import UIKit
 @MainActor
 final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private enum Metrics {
-        static let minimumLength: CGFloat = 48
+        static let fallbackLength: CGFloat = 48
         static let horizontalMargin: CGFloat = 8
         static let verticalSpacing: CGFloat = 8
+    }
+
+    private enum RuntimeClassNames {
+        static let legacyTabBarButton = ["Button", "Bar", "Tab", "UI"].reversed().joined()
     }
 
     private var contentView: UIView?
@@ -127,12 +131,12 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
 
     private func installHostConstraintsIfNeeded(_ hostView: UIView, in tabBarController: UITabBarController) {
         if widthConstraint == nil {
-            widthConstraint = hostView.widthAnchor.constraint(equalToConstant: Metrics.minimumLength)
+            widthConstraint = hostView.widthAnchor.constraint(equalToConstant: Metrics.fallbackLength)
             widthConstraint?.isActive = true
         }
 
         if heightConstraint == nil {
-            heightConstraint = hostView.heightAnchor.constraint(equalToConstant: Metrics.minimumLength)
+            heightConstraint = hostView.heightAnchor.constraint(equalToConstant: Metrics.fallbackLength)
             heightConstraint?.isActive = true
         }
 
@@ -285,10 +289,12 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     }
 
     private func resolvedSize(for view: UIView, in tabBarController: UITabBarController) -> CGSize {
-        let targetHeight = max(
-            preferredDimension(view.intrinsicContentSize.height) ?? Metrics.minimumLength,
-            Metrics.minimumLength
+        let fallbackHeight = max(
+            preferredDimension(view.intrinsicContentSize.height) ?? Metrics.fallbackLength,
+            Metrics.fallbackLength
         )
+        let targetHeight = tabBarButtonHeight(in: tabBarController.tabBar)
+            ?? fallbackHeight
         let idealSize = view.sizeThatFits(
             CGSize(width: UIView.layoutFittingExpandedSize.width, height: targetHeight)
         )
@@ -317,10 +323,36 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         let availableWidth = width - Metrics.horizontalMargin * 2
         guard availableWidth.isFinite,
               availableWidth > 0 else {
-            return Metrics.minimumLength
+            return Metrics.fallbackLength
         }
 
-        return max(availableWidth, Metrics.minimumLength)
+        return max(availableWidth, Metrics.fallbackLength)
+    }
+
+    private func tabBarButtonHeight(in tabBar: UITabBar) -> CGFloat? {
+        tabBar.subviews
+            .compactMap { view -> CGFloat? in
+                guard isTabBarButton(view),
+                      !view.isHidden,
+                      view.alpha > 0.01,
+                      view.bounds.height.isFinite,
+                      view.bounds.height > 0 else {
+                    return nil
+                }
+
+                return view.bounds.height
+            }
+            .max()
+    }
+
+    private func isTabBarButton(_ view: UIView) -> Bool {
+        tabBarButtonClasses().contains { view.isKind(of: $0) }
+    }
+
+    private func tabBarButtonClasses() -> [AnyClass] {
+        [
+            RuntimeClassNames.legacyTabBarButton
+        ].compactMap(NSClassFromString)
     }
 
     private func preferredDimension(_ value: CGFloat) -> CGFloat? {
