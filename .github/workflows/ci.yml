@@ -20,16 +20,13 @@ jobs:
       matrix:
         include:
           - name: iOS 18 latest
-            runner: macos-26
+            runner: macos-15
             ios_major: '18'
-            device_name: iPhone 16
           - name: iOS 26 latest
             runner: macos-26
             ios_major: '26'
-            device_name: iPhone 17
     runs-on: ${{ matrix.runner }}
     env:
-      DEVICE_NAME: ${{ matrix.device_name }}
       IOS_MAJOR: ${{ matrix.ios_major }}
       XCODE_MAJOR: '26'
     steps:
@@ -72,7 +69,6 @@ jobs:
           require "json"
 
           ios_major = ENV.fetch("IOS_MAJOR")
-          device_name = ENV.fetch("DEVICE_NAME")
           devices = JSON.parse(`xcrun simctl list devices available --json`).fetch("devices")
           matches = []
 
@@ -82,21 +78,22 @@ jobs:
             version = Regexp.last_match(1).tr("-", ".")
             next unless version.split(".").first == ios_major
 
-            runtime_devices.each do |device|
-              next unless device["name"] == device_name
-              next unless device.fetch("isAvailable", true)
+            available_devices = runtime_devices.select { |device| device.fetch("isAvailable", true) }
+            preferred_devices = available_devices.select { |device| device["name"].start_with?("iPhone") }
+            selected_devices = preferred_devices.empty? ? available_devices : preferred_devices
 
-              matches << [version.split(".").map(&:to_i), version, device.fetch("udid")]
+            selected_devices.each do |device|
+              matches << [version.split(".").map(&:to_i), version, device.fetch("name"), device.fetch("udid")]
             end
           end
 
           if matches.empty?
-            warn "No available #{device_name} simulator found for iOS #{ios_major}.x"
+            warn "No available iOS #{ios_major}.x simulator found"
             system("xcrun simctl list devices available")
             exit 1
           end
 
-          _, version, udid = matches.max_by { |components, _, _| components }
+          _, version, device_name, udid = matches.max_by { |components, _, _, _| components }
           File.open(ENV.fetch("GITHUB_ENV"), "a") do |env|
             env.puts "DESTINATION=platform=iOS Simulator,id=#{udid}"
             env.puts "RESOLVED_IOS_VERSION=#{version}"
