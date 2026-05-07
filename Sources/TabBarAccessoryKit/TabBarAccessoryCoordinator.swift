@@ -105,6 +105,11 @@ final class TabBarAccessoryCoordinator {
         originalTranslatesAutoresizingMaskIntoConstraints = contentView.translatesAutoresizingMaskIntoConstraints
         contentView.translatesAutoresizingMaskIntoConstraints = false
         TabBarAccessoryHitTesting.register(container: container, contentView: contentView)
+        TabBarAccessoryContainerSizing.register(
+            container: container,
+            contentView: contentView,
+            position: position
+        )
 
         let width = contentView.widthAnchor.constraint(equalToConstant: contentView.intrinsicContentSize.width)
         let height = contentView.heightAnchor.constraint(equalToConstant: contentView.intrinsicContentSize.height)
@@ -133,6 +138,7 @@ final class TabBarAccessoryCoordinator {
         NSLayoutConstraint.deactivate(installedConstraints)
         installedConstraints.removeAll()
         TabBarAccessoryHitTesting.unregister(container: boundContainer)
+        TabBarAccessoryContainerSizing.unregister(container: boundContainer)
         if let contentView, let originalTranslatesAutoresizingMaskIntoConstraints {
             contentView.translatesAutoresizingMaskIntoConstraints = originalTranslatesAutoresizingMaskIntoConstraints
         }
@@ -150,9 +156,16 @@ final class TabBarAccessoryCoordinator {
         }
 
         update(heightConstraint, to: height)
-        update(
-            widthConstraint,
-            to: resolvedWidth(for: contentView, height: height, maximumWidth: container.bounds.width)
+        let width = resolvedWidth(
+            for: contentView,
+            height: height,
+            maximumWidth: TabBarAccessoryContainerSizing.availableWidth(for: container)
+        )
+        update(widthConstraint, to: width)
+        TabBarAccessoryContainerSizing.update(
+            container: container,
+            contentWidth: width,
+            position: position
         )
     }
 
