@@ -200,6 +200,34 @@ import UIKit
 }
 
 @MainActor
+@Test func accessoryContainerSizingCentersFrameUsingLayoutHostBounds() {
+    let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 84, y: 0, width: 100, height: 48))
+    let container = AccessoryContainerView(frame: host.accessoryFrame)
+    let contentView = AccessoryContentView()
+    host.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
+    host.bind(container)
+
+    TabBarAccessoryContainerSizing.register(
+        container: container,
+        contentView: contentView,
+        position: .center
+    )
+    defer {
+        TabBarAccessoryContainerSizing.unregister(container: container)
+    }
+
+    TabBarAccessoryContainerSizing.update(
+        container: container,
+        contentWidth: 44,
+        position: .center
+    )
+
+    host.layoutIfNeeded()
+
+    #expect(container.frame == CGRect(x: 128, y: 0, width: 44, height: 48))
+}
+
+@MainActor
 @Test func unregisteredAccessoryContainerSizingKeepsDefaultFrameUpdates() {
     let container = AccessoryContainerView(frame: CGRect(x: 0, y: 0, width: 100, height: 48))
     let contentView = UIView()

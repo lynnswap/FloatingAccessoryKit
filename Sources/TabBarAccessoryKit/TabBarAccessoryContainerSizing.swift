@@ -282,12 +282,22 @@ enum TabBarAccessoryContainerSizing {
         case .leading:
             break
         case .center:
-            adjustedFrame.origin.x = frame.midX - width / 2
+            adjustedFrame.origin.x = centerX(for: frame, state: state) - width / 2
         case .trailing:
             adjustedFrame.origin.x = frame.maxX - width
         }
 
         return adjustedFrame
+    }
+
+    private static func centerX(for frame: CGRect, state: SizingState) -> CGFloat {
+        guard let host = state.host,
+              host.bounds.width.isFinite,
+              host.bounds.width > 0 else {
+            return frame.midX
+        }
+
+        return host.bounds.midX
     }
 
     private static func sizingState(for container: UIView) -> SizingState? {
