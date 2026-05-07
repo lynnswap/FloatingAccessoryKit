@@ -75,7 +75,7 @@ struct TabBarAccessoryViewLifecycleHooksTests {
         #expect(coordinator.lastVisibilityAnimated == true)
     }
 
-    @Test func registrationDoesNotRetainCoordinatorOrTabBarController() {
+    @Test func registrationDoesNotRetainCoordinatorOrTabBarController() async {
         weak var weakTabBarController: UITabBarController?
         weak var weakCoordinator: SpyAccessoryCoordinator?
 
@@ -88,6 +88,8 @@ struct TabBarAccessoryViewLifecycleHooksTests {
             weakTabBarController = tabBarController
             weakCoordinator = coordinator
         }
+
+        await Task.yield()
 
         #expect(weakTabBarController == nil)
         #expect(weakCoordinator == nil)
