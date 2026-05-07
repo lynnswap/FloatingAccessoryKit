@@ -6,13 +6,19 @@
 //
 
 import TabBarAccessoryKit
-import SwiftUI
 import UIKit
 
 final class SampleTabBarController: UITabBarController {
+    private enum Metrics {
+        static let animationDuration: TimeInterval = 0.25
+    }
+
     private var accessoryConfiguration: AccessoryConfiguration
     private var isAccessoryHidden = false
+    private var requestedTabBarHidden = false
     private lazy var accessoryController = TabBarAccessoryController(tabBarController: self)
+
+    var onTabBarVisibilityChange: (@MainActor (Bool) -> Void)?
 
     private init(accessoryConfiguration: AccessoryConfiguration) {
         self.accessoryConfiguration = accessoryConfiguration
@@ -68,8 +74,59 @@ final class SampleTabBarController: UITabBarController {
         accessoryController.setHidden(hidden, animated: animated)
     }
 
+    func setTabBarHiddenWithFade(_ hidden: Bool, animated: Bool) {
+        guard hidden != requestedTabBarHidden else {
+            return
+        }
+
+        requestedTabBarHidden = hidden
+        onTabBarVisibilityChange?(hidden)
+
+        guard animated else {
+            setTabBarHidden(hidden, animated: false)
+            tabBar.alpha = 1
+            return
+        }
+
+        view.layoutIfNeeded()
+
+        if hidden {
+            let snapshot = tabBar.snapshotView(afterScreenUpdates: false)
+            snapshot?.frame = tabBar.frame
+            if let snapshot {
+                view.addSubview(snapshot)
+            }
+            tabBar.alpha = 0
+
+            UIView.animate(
+                withDuration: Metrics.animationDuration,
+                delay: 0,
+                options: [.curveEaseInOut]
+            ) {
+                snapshot?.alpha = 0
+                self.setTabBarHidden(true, animated: false)
+                self.view.layoutIfNeeded()
+            } completion: { _ in
+                snapshot?.removeFromSuperview()
+                self.tabBar.alpha = 1
+            }
+        } else {
+            tabBar.alpha = 0
+
+            UIView.animate(
+                withDuration: Metrics.animationDuration,
+                delay: 0,
+                options: [.curveEaseInOut]
+            ) {
+                self.setTabBarHidden(false, animated: false)
+                self.tabBar.alpha = 1
+                self.view.layoutIfNeeded()
+            }
+        }
+    }
+
     private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
-        let viewController = UIHostingController(rootView: SampleScrollView())
+        let viewController = SampleScrollViewController()
         viewController.view.backgroundColor = .systemBackground
         viewController.title = title
         viewController.tabBarItem = UITabBarItem(
@@ -108,28 +165,128 @@ private struct AccessoryConfiguration {
     }
 }
 
-private struct SampleScrollView: View {
-    var body: some View {
-        let blockHeight: CGFloat = 400
+private final class SampleScrollViewController: UIViewController, UIScrollViewDelegate {
+    private enum Metrics {
+        static let blockHeight: CGFloat = 400
+        static let tabBarToggleThreshold: CGFloat = 60
+    }
 
-        ScrollView {
-            VStack(spacing: 0) {
-                Color.black
-                    .frame(height: blockHeight)
-                Color.mint.opacity(0.1)
-                    .frame(height: blockHeight)
-                Color.black
-                    .frame(height: blockHeight)
-            }
+    private let scrollView = UIScrollView()
+    private let stackView = UIStackView()
+    private var lastContentOffsetY: CGFloat = 0
+    private var accumulatedScrollDelta: CGFloat = 0
+
+    override func loadView() {
+        view = UIView()
+        view.backgroundColor = .systemBackground
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = .vertical
+        stackView.spacing = 0
+        scrollView.addSubview(stackView)
+
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
+        ])
+
+        [
+            UIColor.black,
+            UIColor.systemMint.withAlphaComponent(0.1),
+            UIColor.black
+        ].forEach(addBlockView(color:))
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        if #unavailable(iOS 26.0) {
+            scrollView.delegate = self
         }
+    }
+
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        lastContentOffsetY = scrollView.contentOffset.y
+        accumulatedScrollDelta = 0
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if #available(iOS 26.0, *) {
+            return
+        }
+
+        let offsetY = scrollView.contentOffset.y
+        let topOffsetY = -scrollView.adjustedContentInset.top
+        let bottomOffsetY = max(
+            topOffsetY,
+            scrollView.contentSize.height - scrollView.bounds.height + scrollView.adjustedContentInset.bottom
+        )
+
+        guard offsetY > topOffsetY else {
+            setTabBarHiddenFromScroll(false)
+            resetScrollTracking(offsetY)
+            return
+        }
+
+        guard offsetY < bottomOffsetY else {
+            resetScrollTracking(offsetY)
+            return
+        }
+
+        let delta = offsetY - lastContentOffsetY
+        lastContentOffsetY = offsetY
+
+        guard delta != 0 else {
+            return
+        }
+
+        if delta > 0 {
+            accumulatedScrollDelta = max(0, accumulatedScrollDelta) + delta
+        } else {
+            accumulatedScrollDelta = min(0, accumulatedScrollDelta) + delta
+        }
+
+        if accumulatedScrollDelta >= Metrics.tabBarToggleThreshold {
+            setTabBarHiddenFromScroll(true)
+            accumulatedScrollDelta = 0
+        } else if accumulatedScrollDelta <= -Metrics.tabBarToggleThreshold {
+            setTabBarHiddenFromScroll(false)
+            accumulatedScrollDelta = 0
+        }
+    }
+
+    private func addBlockView(color: UIColor) {
+        let blockView = UIView()
+        blockView.backgroundColor = color
+        stackView.addArrangedSubview(blockView)
+        blockView.heightAnchor.constraint(equalToConstant: Metrics.blockHeight).isActive = true
+    }
+
+    private func resetScrollTracking(_ offsetY: CGFloat) {
+        lastContentOffsetY = offsetY
+        accumulatedScrollDelta = 0
+    }
+
+    private func setTabBarHiddenFromScroll(_ hidden: Bool) {
+        (tabBarController as? SampleTabBarController)?.setTabBarHiddenWithFade(
+            hidden,
+            animated: true
+        )
     }
 }
 
 final class SampleTabBarAccessoryDemoNavigationController: UINavigationController {
-    private enum Metrics {
-        static let animationDuration: TimeInterval = 0.25
-    }
-
     private let positionControl = UISegmentedControl(
         items: ["leading", "center", "trailing"]
     )
@@ -160,6 +317,9 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         super.init(rootViewController: sampleTabBarController)
 
         configureNavigationItem()
+        sampleTabBarController.onTabBarVisibilityChange = { [weak self] hidden in
+            self?.syncTabBarVisibility(hidden)
+        }
         accessoryView.onContentSizeChange = { [weak self] in
             self?.updateAccessorySize()
         }
@@ -173,7 +333,7 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        sampleTabBarController.setTabBarHidden(isTabBarHidden, animated: false)
+        sampleTabBarController.setTabBarHiddenWithFade(isTabBarHidden, animated: false)
         sampleTabBarController.setAccessoryHidden(isAccessoryHidden)
     }
 
@@ -225,51 +385,7 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
 
     private func tabBarVisibilityDidChange() {
         isTabBarHidden = !tabBarVisibilitySwitch.isOn
-        setTabBarHiddenWithFade(isTabBarHidden, animated: true)
-    }
-
-    private func setTabBarHiddenWithFade(_ hidden: Bool, animated: Bool) {
-        guard animated else {
-            sampleTabBarController.setTabBarHidden(hidden, animated: false)
-            sampleTabBarController.tabBar.alpha = 1
-            return
-        }
-
-        sampleTabBarController.view.layoutIfNeeded()
-
-        if hidden {
-            let snapshot = sampleTabBarController.tabBar.snapshotView(afterScreenUpdates: false)
-            snapshot?.frame = sampleTabBarController.tabBar.frame
-            if let snapshot {
-                sampleTabBarController.view.addSubview(snapshot)
-            }
-            sampleTabBarController.tabBar.alpha = 0
-
-            UIView.animate(
-                withDuration: Metrics.animationDuration,
-                delay: 0,
-                options: [.curveEaseInOut]
-            ) {
-                snapshot?.alpha = 0
-                self.sampleTabBarController.setTabBarHidden(true, animated: false)
-                self.sampleTabBarController.view.layoutIfNeeded()
-            } completion: { _ in
-                snapshot?.removeFromSuperview()
-                self.sampleTabBarController.tabBar.alpha = 1
-            }
-        } else {
-            sampleTabBarController.tabBar.alpha = 0
-
-            UIView.animate(
-                withDuration: Metrics.animationDuration,
-                delay: 0,
-                options: [.curveEaseInOut]
-            ) {
-                self.sampleTabBarController.setTabBarHidden(false, animated: false)
-                self.sampleTabBarController.tabBar.alpha = 1
-                self.sampleTabBarController.view.layoutIfNeeded()
-            }
-        }
+        sampleTabBarController.setTabBarHiddenWithFade(isTabBarHidden, animated: true)
     }
 
     private func updateAccessorySize() {
@@ -322,6 +438,16 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         case .trailing:
             2
         }
+    }
+
+    private func syncTabBarVisibility(_ hidden: Bool) {
+        isTabBarHidden = hidden
+        let isOn = !hidden
+        guard tabBarVisibilitySwitch.isOn != isOn else {
+            return
+        }
+
+        tabBarVisibilitySwitch.setOn(isOn, animated: true)
     }
 }
 
