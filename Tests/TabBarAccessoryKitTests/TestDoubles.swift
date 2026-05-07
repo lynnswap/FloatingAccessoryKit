@@ -1,0 +1,185 @@
+import UIKit
+@testable import TabBarAccessoryKit
+
+@MainActor
+func makeTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) -> UITabBarController {
+    let tabBarController = UITabBarController()
+    tabBarController.viewControllers = [UIViewController()]
+    tabBarController.loadViewIfNeeded()
+    tabBarController.view.frame = CGRect(origin: .zero, size: size)
+    tabBarController.view.setNeedsLayout()
+    tabBarController.view.layoutIfNeeded()
+    return tabBarController
+}
+
+@MainActor
+func constraintIDs(in views: [UIView]) -> Set<ObjectIdentifier> {
+    Set(views.flatMap(\.constraints).map { ObjectIdentifier($0) })
+}
+
+@MainActor
+func constraintsReferencing(_ item: AnyObject, in views: [UIView]) -> [NSLayoutConstraint] {
+    views
+        .flatMap(\.constraints)
+        .filter { constraint in
+            constraint.firstItem === item || constraint.secondItem === item
+        }
+}
+
+@MainActor
+func overlayHostViews(in tabBarController: UITabBarController) -> [UIView] {
+    tabBarController.view.subviews.filter { view in
+        view.subviews.contains { $0 is UIVisualEffectView }
+    }
+}
+
+final class FixedSizeView: UIView {
+    let size: CGSize
+
+    init(size: CGSize) {
+        self.size = size
+
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: CGSize {
+        size
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        self.size
+    }
+}
+
+final class MutableSizeView: UIView {
+    var size: CGSize {
+        didSet {
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    init(size: CGSize) {
+        self.size = size
+
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: CGSize {
+        size
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        self.size
+    }
+}
+
+final class NoIntrinsicSizeView: UIView {
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        .zero
+    }
+}
+
+final class AccessoryContainerView: UIView {}
+
+@available(iOS 26.0, *)
+final class AccessoryContentView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+
+        traitOverrides.tabAccessoryEnvironment = .regular
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+final class AccessoryLayoutHostView: UIView {
+    var accessoryFrame: CGRect
+    private weak var accessoryContainer: UIView?
+
+    init(accessoryFrame: CGRect) {
+        self.accessoryFrame = accessoryFrame
+
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func bind(_ container: UIView) {
+        accessoryContainer = container
+        addSubview(container)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        accessoryContainer?.frame = frameForHostedElement(2, options: 0)
+    }
+
+    @objc(frameForHostedElement:options:)
+    dynamic func frameForHostedElement(_ element: Int, options: Int) -> CGRect {
+        element == 2 ? accessoryFrame : .zero
+    }
+}
+
+@MainActor
+final class SpyAccessoryCoordinator: TabBarAccessoryCoordinating {
+    var isHidden = false
+    var setAccessoryViewCallCount = 0
+    var setHiddenCallCount = 0
+    var updateCallCount = 0
+    var visibilityChangeCallCount = 0
+    weak var lastUpdatedTabBarController: UITabBarController?
+    weak var lastVisibilityTabBarController: UITabBarController?
+    var lastVisibilityHidden: Bool?
+    var lastVisibilityAnimated: Bool?
+
+    func setAccessoryView(
+        _ view: UIView?,
+        position: TabBarAccessoryController.Position,
+        animated: Bool,
+        in tabBarController: UITabBarController
+    ) {
+        setAccessoryViewCallCount += 1
+    }
+
+    func setHidden(_ hidden: Bool, animated: Bool, in tabBarController: UITabBarController) {
+        isHidden = hidden
+        setHiddenCallCount += 1
+    }
+
+    func update(in tabBarController: UITabBarController) {
+        updateCallCount += 1
+        lastUpdatedTabBarController = tabBarController
+    }
+
+    func tabBarVisibilityDidChange(
+        hidden: Bool,
+        animated: Bool,
+        in tabBarController: UITabBarController
+    ) {
+        visibilityChangeCallCount += 1
+        lastVisibilityHidden = hidden
+        lastVisibilityAnimated = animated
+        lastVisibilityTabBarController = tabBarController
+    }
+}
