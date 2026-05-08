@@ -36,6 +36,22 @@ struct TabBarAccessoryControllerTests {
         #expect(controller.isHidden == false)
     }
 
+    @Test func setContentInstallsNativeAccessoryWithUITabs() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeUITabTestTabBarController()
+        let controller = TabBarAccessoryController(tabBarController: tabBarController)
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        controller.setContent(contentView, animated: false)
+
+        #expect(tabBarController.bottomAccessory != nil)
+        #expect(overlayHostViews(in: tabBarController).isEmpty)
+        #expect(controller.isHidden == false)
+    }
+
     @Test func updatingPositionThroughControllerReusesOverlayContentAndHost() throws {
         if #available(iOS 26.0, *) {
             return

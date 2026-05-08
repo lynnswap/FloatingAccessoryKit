@@ -13,6 +13,25 @@ func makeTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) ->
 }
 
 @MainActor
+func makeUITabTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) -> UITabBarController {
+    let tabBarController = UITabBarController(
+        tabs: [
+            UITab(title: "Home", image: nil, identifier: "home") { _ in
+                UIViewController()
+            },
+            UITab(title: "Settings", image: nil, identifier: "settings") { _ in
+                UIViewController()
+            }
+        ]
+    )
+    tabBarController.loadViewIfNeeded()
+    tabBarController.view.frame = CGRect(origin: .zero, size: size)
+    tabBarController.view.setNeedsLayout()
+    tabBarController.view.layoutIfNeeded()
+    return tabBarController
+}
+
+@MainActor
 func makeEmptyTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) -> UITabBarController {
     let tabBarController = UITabBarController()
     tabBarController.loadViewIfNeeded()
