@@ -465,7 +465,7 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(hostView.bounds.size == CGSize(width: 48, height: 32))
     }
 
-    @Test func usesTabBarAppearanceBackground() throws {
+    @Test func appliesTabBarAppearanceBackgroundToHost() throws {
         let tabBarController = makeTestTabBarController()
         let appearance = UITabBarAppearance()
         appearance.configureWithTransparentBackground()

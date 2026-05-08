@@ -613,7 +613,6 @@ private func makeAccessoryButton(
 ) -> UIButton {
     let button = UIButton(type: .system)
     var configuration = UIButton.Configuration.plain()
-    configuration.cornerStyle = .capsule
     configuration.image = UIImage(systemName: systemImageName)
     configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
     button.configuration = configuration
