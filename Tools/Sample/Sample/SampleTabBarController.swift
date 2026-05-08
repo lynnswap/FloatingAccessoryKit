@@ -14,23 +14,29 @@ final class SampleTabBarController: UITabBarController {
     }
 
     private var accessoryConfiguration: AccessoryConfiguration
+    private let usesUITabs: Bool
     private var isAccessoryHidden = false
     private var requestedTabBarHidden = false
     private lazy var accessoryController = TabBarAccessoryController(tabBarController: self)
 
     var onTabBarVisibilityChange: (@MainActor (Bool) -> Void)?
 
-    private init(accessoryConfiguration: AccessoryConfiguration) {
+    private init(accessoryConfiguration: AccessoryConfiguration, usesUITabs: Bool) {
         self.accessoryConfiguration = accessoryConfiguration
+        self.usesUITabs = usesUITabs
 
         super.init(nibName: nil, bundle: nil)
     }
 
     convenience init(
         accessoryView: UIView,
-        accessoryPosition: TabBarAccessoryController.Position = .trailing
+        accessoryPosition: TabBarAccessoryController.Position = .trailing,
+        usesUITabs: Bool = false
     ) {
-        self.init(accessoryConfiguration: .uiView(accessoryView, position: accessoryPosition))
+        self.init(
+            accessoryConfiguration: .uiView(accessoryView, position: accessoryPosition),
+            usesUITabs: usesUITabs
+        )
     }
 
     @available(*, unavailable)
@@ -44,10 +50,7 @@ final class SampleTabBarController: UITabBarController {
         if #available(iOS 26.0, *) {
             tabBarMinimizeBehavior = .onScrollDown
         }
-        viewControllers = [
-            makePreviewTab(title: "Home", systemImageName: "house"),
-            makePreviewTab(title: "Settings", systemImageName: "gearshape")
-        ]
+        configureTabs()
 
         applyAccessoryConfigurationIfNeeded()
     }
@@ -125,15 +128,52 @@ final class SampleTabBarController: UITabBarController {
         }
     }
 
-    private func makePreviewTab(title: String, systemImageName: String) -> UIViewController {
-        let viewController = SampleScrollViewController()
-        viewController.view.backgroundColor = .systemBackground
-        viewController.title = title
+    private func configureTabs() {
+        if usesUITabs {
+            tabs = [
+                Self.makePreviewUITab(
+                    title: "Home",
+                    systemImageName: "house",
+                    identifier: "home"
+                ),
+                Self.makePreviewUITab(
+                    title: "Settings",
+                    systemImageName: "gearshape",
+                    identifier: "settings"
+                )
+            ]
+        } else {
+            viewControllers = [
+                Self.makePreviewViewControllerTab(title: "Home", systemImageName: "house"),
+                Self.makePreviewViewControllerTab(title: "Settings", systemImageName: "gearshape")
+            ]
+        }
+    }
+
+    private static func makePreviewViewControllerTab(title: String, systemImageName: String) -> UIViewController {
+        let viewController = makePreviewContentViewController(title: title)
         viewController.tabBarItem = UITabBarItem(
             title: title,
             image: UIImage(systemName: systemImageName),
             selectedImage: nil
         )
+        return viewController
+    }
+
+    private static func makePreviewUITab(title: String, systemImageName: String, identifier: String) -> UITab {
+        UITab(
+            title: title,
+            image: UIImage(systemName: systemImageName),
+            identifier: identifier
+        ) { _ in
+            makePreviewContentViewController(title: title)
+        }
+    }
+
+    private static func makePreviewContentViewController(title: String) -> UIViewController {
+        let viewController = SampleScrollViewController()
+        viewController.view.backgroundColor = .systemBackground
+        viewController.title = title
         return viewController
     }
 
@@ -302,7 +342,8 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
     init(
         accessoryPosition: TabBarAccessoryController.Position = .trailing,
         isTabBarHidden: Bool = false,
-        isAccessoryHidden: Bool = false
+        isAccessoryHidden: Bool = false,
+        usesUITabs: Bool = false
     ) {
         let accessoryView = SampleAccessoryView()
         self.accessoryPosition = accessoryPosition
@@ -311,7 +352,8 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         self.accessoryView = accessoryView
         self.sampleTabBarController = SampleTabBarController(
             accessoryView: accessoryView,
-            accessoryPosition: accessoryPosition
+            accessoryPosition: accessoryPosition,
+            usesUITabs: usesUITabs
         )
 
         super.init(rootViewController: sampleTabBarController)
@@ -593,7 +635,11 @@ private func makeAccessoryButton(
 }
 
 #if DEBUG
-#Preview {
+#Preview("View Controller Tabs") {
     SampleTabBarAccessoryDemoNavigationController()
+}
+
+#Preview("UITab Tabs") {
+    SampleTabBarAccessoryDemoNavigationController(usesUITabs: true)
 }
 #endif
