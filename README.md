@@ -39,6 +39,12 @@ final class MainTabBarController: UITabBarController {
 }
 ```
 
+## Accessory Background
+
+The view passed to `setContent` is foreground content. Do not add your own capsule or material background.
+
+On iOS 26+, TabBarAccessoryKit uses the native `UITabAccessory` presentation without adding another background. On iOS 18, TabBarAccessoryKit adds a matching overlay background around the content.
+
 ## Tab Bar Minimization
 
 On iOS 26+, use UIKit's `tabBarMinimizeBehavior` when you want the tab bar to minimize while scrolling.
