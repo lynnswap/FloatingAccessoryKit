@@ -6,7 +6,7 @@ import UIKit
 /// to it while the accessory is in use. The controller keeps only a weak
 /// reference to the tab bar controller.
 ///
-/// On iOS 26+, TabBarAccessoryKit uses UIKit's native `UITabAccessory`. On
+/// On iOS 26+, FloatingAccessoryKit uses UIKit's native `UITabAccessory`. On
 /// iOS 18, it installs a lightweight overlay and keeps it positioned with the
 /// tab bar.
 @MainActor
@@ -59,7 +59,7 @@ public final class TabBarAccessoryController {
     ///     current accessory. The view should provide an intrinsic content size
     ///     or explicit sizing constraints. Treat this view as foreground
     ///     content and do not add your own capsule or material background;
-    ///     TabBarAccessoryKit uses the native `UITabAccessory` presentation on
+    ///     FloatingAccessoryKit uses the native `UITabAccessory` presentation on
     ///     iOS 26+ without adding another background, and adds a matching
     ///     overlay background on iOS 18.
     ///   - position: The horizontal placement for the accessory. The default is

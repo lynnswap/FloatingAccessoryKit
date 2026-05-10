@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F0B200000000000000000001 /* TabBarAccessoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = F0B200000000000000000003 /* TabBarAccessoryKit */; };
+		F0B200000000000000000001 /* FloatingAccessoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = F0B200000000000000000003 /* FloatingAccessoryKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,7 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F0B200000000000000000001 /* TabBarAccessoryKit in Frameworks */,
+				F0B200000000000000000001 /* FloatingAccessoryKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,7 +70,7 @@
 			);
 			name = Sample;
 			packageProductDependencies = (
-				F0B200000000000000000003 /* TabBarAccessoryKit */,
+				F0B200000000000000000003 /* FloatingAccessoryKit */,
 			);
 			productName = Sample;
 			productReference = ABF6AA912FAAE73300684628 /* Sample.app */;
@@ -367,10 +367,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		F0B200000000000000000003 /* TabBarAccessoryKit */ = {
+		F0B200000000000000000003 /* FloatingAccessoryKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F0B200000000000000000002 /* XCLocalSwiftPackageReference "../.." */;
-			productName = TabBarAccessoryKit;
+			productName = FloatingAccessoryKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

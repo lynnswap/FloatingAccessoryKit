@@ -1,6 +1,6 @@
-# TabBarAccessoryKit
+# FloatingAccessoryKit
 
-`TabBarAccessoryKit` makes it simple to add a floating action button to a `UITabBarController`.
+`FloatingAccessoryKit` makes it simple to add floating accessories to UIKit containers. It currently provides a tab bar accessory controller for `UITabBarController`.
 
 Use any `UIView` as the accessory. On iOS 26+, it uses UIKit's native `UITabAccessory`. On iOS 18, it keeps the accessory positioned with the tab bar.
 
@@ -16,7 +16,7 @@ Use any `UIView` as the accessory. On iOS 26+, it uses UIKit's native `UITabAcce
 ## Usage
 
 ```swift
-import TabBarAccessoryKit
+import FloatingAccessoryKit
 import UIKit
 
 final class MainTabBarController: UITabBarController {
@@ -43,13 +43,13 @@ final class MainTabBarController: UITabBarController {
 
 The view passed to `setContent` is foreground content. Do not add your own capsule or material background.
 
-On iOS 26+, TabBarAccessoryKit uses the native `UITabAccessory` presentation without adding another background. On iOS 18, TabBarAccessoryKit adds a matching overlay background around the content.
+On iOS 26+, FloatingAccessoryKit uses the native `UITabAccessory` presentation without adding another background. On iOS 18, FloatingAccessoryKit adds a matching overlay background around the content.
 
 ## Tab Bar Minimization
 
 On iOS 26+, use UIKit's `tabBarMinimizeBehavior` when you want the tab bar to minimize while scrolling.
 
-On iOS 18, toggle the tab bar yourself with `setTabBarHidden(_:animated:)`. `TabBarAccessoryKit` keeps the accessory position in sync with the tab bar visibility.
+On iOS 18, toggle the tab bar yourself with `setTabBarHidden(_:animated:)`. `FloatingAccessoryKit` keeps the accessory position in sync with the tab bar visibility.
 
 ```swift
 if #available(iOS 26.0, *) {

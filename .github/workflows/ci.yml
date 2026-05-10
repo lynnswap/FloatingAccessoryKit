@@ -119,7 +119,7 @@ jobs:
       - name: Run package tests
         run: |
           xcodebuild test \
-            -scheme TabBarAccessoryKitTests \
+            -scheme FloatingAccessoryKitTests \
             -destination "${DESTINATION}" \
             -enableCodeCoverage NO \
             -parallel-testing-enabled NO \
