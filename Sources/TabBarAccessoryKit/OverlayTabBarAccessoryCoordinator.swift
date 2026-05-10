@@ -12,6 +12,11 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         static let legacyTabBarButton = ["Button", "Bar", "Tab", "UI"].reversed().joined()
     }
 
+    private struct ManagedSafeAreaAdjustment {
+        weak var viewController: UIViewController?
+        var appliedBottomInset: CGFloat
+    }
+
     private var contentView: UIView?
     private var position: TabBarAccessoryController.Position = .trailing
     private var hostView: OverlayAccessoryHostView?
@@ -24,6 +29,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var lastVisibleBottomY: CGFloat?
     private var isTabBarHidden = false
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
+    private var managedSafeAreaAdjustment: ManagedSafeAreaAdjustment?
     private var transitionGeneration = 0
 
     private(set) var isHidden = false
@@ -63,8 +69,8 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
 
         if hidden {
-            update(in: tabBarController)
             isHidden = true
+            restoreManagedSafeAreaAdjustment()
             hideHostView(animated: animated, in: tabBarController)
         } else {
             isHidden = false
@@ -86,10 +92,11 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         )
         let didUpdateSize = updateContentViewSize(contentView, in: tabBarController)
         let didUpdatePosition = updatePosition(in: tabBarController)
+        let didUpdateInsets = updateManagedSafeAreaAdjustment(in: tabBarController)
         if let hostView {
             tabBarController.view.bringSubviewToFront(hostView)
         }
-        if didUpdateSize || didUpdatePosition {
+        if didUpdateSize || didUpdatePosition || didUpdateInsets {
             tabBarController.view.setNeedsLayout()
         }
     }
@@ -329,6 +336,78 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         return max(availableWidth, Metrics.fallbackLength)
     }
 
+    private func updateManagedSafeAreaAdjustment(in tabBarController: UITabBarController) -> Bool {
+        guard let selectedViewController = tabBarController.selectedViewController else {
+            return restoreManagedSafeAreaAdjustment()
+        }
+
+        let bottomInset = accessorySafeAreaBottomInset()
+        guard bottomInset > 0 else {
+            return restoreManagedSafeAreaAdjustment()
+        }
+
+        if let managedSafeAreaAdjustment,
+           managedSafeAreaAdjustment.viewController !== selectedViewController {
+            _ = restoreManagedSafeAreaAdjustment()
+        }
+
+        let previousAppliedBottomInset = managedSafeAreaAdjustment?.viewController === selectedViewController
+            ? managedSafeAreaAdjustment?.appliedBottomInset ?? 0
+            : 0
+        var insets = selectedViewController.additionalSafeAreaInsets
+        if insets.bottom >= previousAppliedBottomInset {
+            insets.bottom -= previousAppliedBottomInset
+        }
+        insets.bottom += bottomInset
+
+        let didUpdate = abs(selectedViewController.additionalSafeAreaInsets.bottom - insets.bottom) > 0.5
+        if didUpdate {
+            selectedViewController.additionalSafeAreaInsets = insets
+        }
+        managedSafeAreaAdjustment = ManagedSafeAreaAdjustment(
+            viewController: selectedViewController,
+            appliedBottomInset: bottomInset
+        )
+        return didUpdate
+    }
+
+    @discardableResult
+    private func restoreManagedSafeAreaAdjustment() -> Bool {
+        guard let managedSafeAreaAdjustment,
+              let viewController = managedSafeAreaAdjustment.viewController else {
+            self.managedSafeAreaAdjustment = nil
+            return false
+        }
+
+        var insets = viewController.additionalSafeAreaInsets
+        if insets.bottom >= managedSafeAreaAdjustment.appliedBottomInset {
+            insets.bottom -= managedSafeAreaAdjustment.appliedBottomInset
+        }
+        self.managedSafeAreaAdjustment = nil
+
+        guard abs(viewController.additionalSafeAreaInsets.bottom - insets.bottom) > 0.5 else {
+            return false
+        }
+
+        viewController.additionalSafeAreaInsets = insets
+        return true
+    }
+
+    private func accessorySafeAreaBottomInset() -> CGFloat {
+        guard !isHidden,
+              contentView != nil else {
+            return 0
+        }
+
+        let height = heightConstraint?.constant ?? Metrics.fallbackLength
+        guard height.isFinite,
+              height > 0 else {
+            return 0
+        }
+
+        return height + Metrics.verticalSpacing
+    }
+
     private func tabBarButtonHeight(in tabBar: UITabBar) -> CGFloat? {
         tabBar.subviews
             .compactMap { view -> CGFloat? in
@@ -473,6 +552,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             removedBottomConstraint?.isActive = false
             removedWidthConstraint?.isActive = false
             removedHeightConstraint?.isActive = false
+            self.restoreManagedSafeAreaAdjustment()
             self.horizontalConstraint = nil
             self.bottomConstraint = nil
             self.widthConstraint = nil

@@ -213,6 +213,7 @@ private final class SampleScrollViewController: UIViewController, UIScrollViewDe
 
     private let scrollView = UIScrollView()
     private let stackView = UIStackView()
+    private let contentInsetOverlayView = SampleContentInsetOverlayView()
     private var lastContentOffsetY: CGFloat = 0
     private var accumulatedScrollDelta: CGFloat = 0
 
@@ -222,6 +223,9 @@ private final class SampleScrollViewController: UIViewController, UIScrollViewDe
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
+
+        contentInsetOverlayView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(contentInsetOverlayView)
 
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
@@ -233,6 +237,11 @@ private final class SampleScrollViewController: UIViewController, UIScrollViewDe
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            contentInsetOverlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            contentInsetOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            contentInsetOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            contentInsetOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
@@ -254,6 +263,18 @@ private final class SampleScrollViewController: UIViewController, UIScrollViewDe
         if #unavailable(iOS 26.0) {
             scrollView.delegate = self
         }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        updateContentInsetOverlay()
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+
+        updateContentInsetOverlay()
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -323,6 +344,113 @@ private final class SampleScrollViewController: UIViewController, UIScrollViewDe
             hidden,
             animated: true
         )
+    }
+
+    private func updateContentInsetOverlay() {
+        contentInsetOverlayView.update(
+            safeAreaInsets: view.safeAreaInsets,
+            adjustedContentInset: scrollView.adjustedContentInset
+        )
+    }
+}
+
+private final class SampleContentInsetOverlayView: UIView {
+    private let safeAreaFrameView = UIView()
+    private let adjustedContentFrameView = UIView()
+    private let topAdjustedInsetView = UIView()
+    private let bottomAdjustedInsetView = UIView()
+    private let leftAdjustedInsetView = UIView()
+    private let rightAdjustedInsetView = UIView()
+    private var representedSafeAreaInsets = UIEdgeInsets.zero
+    private var representedAdjustedContentInset = UIEdgeInsets.zero
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+
+        [topAdjustedInsetView, bottomAdjustedInsetView, leftAdjustedInsetView, rightAdjustedInsetView].forEach {
+            $0.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.14)
+            addSubview($0)
+        }
+
+        adjustedContentFrameView.backgroundColor = .clear
+        adjustedContentFrameView.layer.borderColor = UIColor.systemBlue.cgColor
+        adjustedContentFrameView.layer.borderWidth = 2
+        addSubview(adjustedContentFrameView)
+
+        safeAreaFrameView.backgroundColor = .clear
+        safeAreaFrameView.layer.borderColor = UIColor.systemGreen.cgColor
+        safeAreaFrameView.layer.borderWidth = 2
+        addSubview(safeAreaFrameView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(
+        safeAreaInsets: UIEdgeInsets,
+        adjustedContentInset: UIEdgeInsets
+    ) {
+        representedSafeAreaInsets = sanitized(safeAreaInsets)
+        representedAdjustedContentInset = sanitized(adjustedContentInset)
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        let safeFrame = bounds.inset(by: representedSafeAreaInsets)
+        let adjustedFrame = bounds.inset(by: representedAdjustedContentInset)
+
+        safeAreaFrameView.frame = safeFrame
+        adjustedContentFrameView.frame = adjustedFrame
+
+        topAdjustedInsetView.frame = CGRect(
+            x: bounds.minX,
+            y: bounds.minY,
+            width: bounds.width,
+            height: representedAdjustedContentInset.top
+        )
+        bottomAdjustedInsetView.frame = CGRect(
+            x: bounds.minX,
+            y: bounds.maxY - representedAdjustedContentInset.bottom,
+            width: bounds.width,
+            height: representedAdjustedContentInset.bottom
+        )
+        leftAdjustedInsetView.frame = CGRect(
+            x: bounds.minX,
+            y: adjustedFrame.minY,
+            width: representedAdjustedContentInset.left,
+            height: adjustedFrame.height
+        )
+        rightAdjustedInsetView.frame = CGRect(
+            x: bounds.maxX - representedAdjustedContentInset.right,
+            y: adjustedFrame.minY,
+            width: representedAdjustedContentInset.right,
+            height: adjustedFrame.height
+        )
+    }
+
+    private func sanitized(_ insets: UIEdgeInsets) -> UIEdgeInsets {
+        UIEdgeInsets(
+            top: sanitized(insets.top),
+            left: sanitized(insets.left),
+            bottom: sanitized(insets.bottom),
+            right: sanitized(insets.right)
+        )
+    }
+
+    private func sanitized(_ value: CGFloat) -> CGFloat {
+        guard value.isFinite,
+              value > 0 else {
+            return 0
+        }
+
+        return value
     }
 }
 
