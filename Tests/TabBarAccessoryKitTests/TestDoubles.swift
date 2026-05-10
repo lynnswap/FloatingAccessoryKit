@@ -3,8 +3,16 @@ import UIKit
 
 @MainActor
 func makeTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) -> UITabBarController {
+    makeTestTabBarController(viewControllers: [UIViewController()], size: size)
+}
+
+@MainActor
+func makeTestTabBarController(
+    viewControllers: [UIViewController],
+    size: CGSize = CGSize(width: 390, height: 844)
+) -> UITabBarController {
     let tabBarController = UITabBarController()
-    tabBarController.viewControllers = [UIViewController()]
+    tabBarController.viewControllers = viewControllers
     tabBarController.loadViewIfNeeded()
     tabBarController.view.frame = CGRect(origin: .zero, size: size)
     tabBarController.view.setNeedsLayout()

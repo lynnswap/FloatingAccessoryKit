@@ -300,6 +300,117 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(hostView.isHidden == false)
     }
 
+    @Test func appliesAccessoryInsetToSelectedViewControllerAdditionalSafeAreaInsets() throws {
+        let selectedViewController = UIViewController()
+        selectedViewController.additionalSafeAreaInsets.bottom = 12
+        let tabBarController = makeTestTabBarController(viewControllers: [selectedViewController])
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let expectedBottomInset = 12 + hostView.bounds.height + 8
+
+        #expect(abs(selectedViewController.additionalSafeAreaInsets.bottom - expectedBottomInset) <= 0.5)
+    }
+
+    @Test func restoresManagedAdditionalSafeAreaInsetWhenHiddenAndRemoved() throws {
+        let selectedViewController = UIViewController()
+        selectedViewController.additionalSafeAreaInsets.bottom = 12
+        let tabBarController = makeTestTabBarController(viewControllers: [selectedViewController])
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let expectedBottomInset = 12 + hostView.bounds.height + 8
+        #expect(abs(selectedViewController.additionalSafeAreaInsets.bottom - expectedBottomInset) <= 0.5)
+
+        coordinator.setHidden(true, animated: false, in: tabBarController)
+        #expect(abs(selectedViewController.additionalSafeAreaInsets.bottom - 12) <= 0.5)
+
+        coordinator.setHidden(false, animated: false, in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+        #expect(abs(selectedViewController.additionalSafeAreaInsets.bottom - expectedBottomInset) <= 0.5)
+
+        coordinator.setAccessoryView(nil, position: .trailing, animated: false, in: tabBarController)
+        #expect(abs(selectedViewController.additionalSafeAreaInsets.bottom - 12) <= 0.5)
+    }
+
+    @Test func movesManagedAdditionalSafeAreaInsetWhenSelectedTabChanges() throws {
+        let firstViewController = UIViewController()
+        firstViewController.additionalSafeAreaInsets.bottom = 5
+        let secondViewController = UIViewController()
+        secondViewController.additionalSafeAreaInsets.bottom = 7
+        let tabBarController = makeTestTabBarController(
+            viewControllers: [firstViewController, secondViewController]
+        )
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let managedBottomInset = hostView.bounds.height + 8
+        #expect(abs(firstViewController.additionalSafeAreaInsets.bottom - (5 + managedBottomInset)) <= 0.5)
+        #expect(abs(secondViewController.additionalSafeAreaInsets.bottom - 7) <= 0.5)
+
+        tabBarController.selectedIndex = 1
+        coordinator.update(in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(abs(firstViewController.additionalSafeAreaInsets.bottom - 5) <= 0.5)
+        #expect(abs(secondViewController.additionalSafeAreaInsets.bottom - (7 + managedBottomInset)) <= 0.5)
+
+        coordinator.setAccessoryView(nil, position: .trailing, animated: false, in: tabBarController)
+        #expect(abs(secondViewController.additionalSafeAreaInsets.bottom - 7) <= 0.5)
+    }
+
+    @Test func tabBarVisibilityChangeKeepsManagedInsetLimitedToAccessoryOnly() throws {
+        let selectedViewController = UIViewController()
+        let tabBarController = makeTestTabBarController(viewControllers: [selectedViewController])
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let visibleBottomInset = selectedViewController.additionalSafeAreaInsets.bottom
+
+        coordinator.tabBarVisibilityDidChange(hidden: true, animated: false, in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+        #expect(abs(selectedViewController.additionalSafeAreaInsets.bottom - visibleBottomInset) <= 0.5)
+
+        coordinator.tabBarVisibilityDidChange(hidden: false, animated: false, in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+        #expect(abs(selectedViewController.additionalSafeAreaInsets.bottom - visibleBottomInset) <= 0.5)
+    }
+
     @Test func usesTabBarButtonHeightAndExpandsToContentAspectRatio() throws {
         let tabBarController = makeEmptyTestTabBarController()
         addTestTabBarButton(height: 64, to: tabBarController)
