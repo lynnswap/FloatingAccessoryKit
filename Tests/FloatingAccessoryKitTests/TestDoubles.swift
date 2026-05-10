@@ -1,5 +1,5 @@
 import UIKit
-@testable import TabBarAccessoryKit
+@testable import FloatingAccessoryKit
 
 @MainActor
 func makeTestTabBarController(size: CGSize = CGSize(width: 390, height: 844)) -> UITabBarController {

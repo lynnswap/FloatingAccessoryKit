@@ -5,7 +5,7 @@
 //  Created by Kazuki Nakashima on 2026/05/06.
 //
 
-import TabBarAccessoryKit
+import FloatingAccessoryKit
 import UIKit
 
 final class SampleTabBarController: UITabBarController {

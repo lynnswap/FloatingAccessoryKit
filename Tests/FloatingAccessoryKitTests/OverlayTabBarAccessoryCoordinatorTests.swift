@@ -1,6 +1,6 @@
 import Testing
 import UIKit
-@testable import TabBarAccessoryKit
+@testable import FloatingAccessoryKit
 
 @MainActor
 @Suite
