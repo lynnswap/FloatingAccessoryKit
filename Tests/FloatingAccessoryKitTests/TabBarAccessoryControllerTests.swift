@@ -118,6 +118,79 @@ struct TabBarAccessoryControllerTests {
         #expect(abs(hostView.frame.maxY - visibleBottomY) <= 0.5)
     }
 
+    @Test func tappingRevealHitAreaShowsHiddenTabBarOnOverlayFallback() throws {
+        if #available(iOS 26.0, *) {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let controller = TabBarAccessoryController(tabBarController: tabBarController)
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        controller.setContent(contentView, position: .trailing, animated: false)
+        tabBarController.view.layoutIfNeeded()
+
+        tabBarController.setTabBarHidden(true, animated: false)
+        tabBarController.view.layoutIfNeeded()
+
+        let hitAreaView = try #require(revealHitAreaViews(in: tabBarController).first)
+        #expect(tabBarController.isTabBarHidden == true)
+
+        hitAreaView.revealTabBar()
+
+        #expect(tabBarController.isTabBarHidden == false)
+    }
+
+    @Test func longPressingRevealHitAreaShowsHiddenTabBarOnOverlayFallback() throws {
+        if #available(iOS 26.0, *) {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let controller = TabBarAccessoryController(tabBarController: tabBarController)
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        controller.setContent(contentView, position: .trailing, animated: false)
+        tabBarController.view.layoutIfNeeded()
+
+        tabBarController.setTabBarHidden(true, animated: false)
+        tabBarController.view.layoutIfNeeded()
+
+        let hitAreaView = try #require(revealHitAreaViews(in: tabBarController).first)
+        let longPressGesture = TestLongPressGestureRecognizer()
+        longPressGesture.transition(to: .began)
+
+        #expect(tabBarController.isTabBarHidden == true)
+
+        hitAreaView.handleLongPress(longPressGesture)
+
+        #expect(tabBarController.isTabBarHidden == false)
+    }
+
+    @Test func accessibilityActivatingRevealHitAreaShowsHiddenTabBarOnOverlayFallback() throws {
+        if #available(iOS 26.0, *) {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let controller = TabBarAccessoryController(tabBarController: tabBarController)
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        controller.setContent(contentView, position: .trailing, animated: false)
+        tabBarController.view.layoutIfNeeded()
+
+        tabBarController.setTabBarHidden(true, animated: false)
+        tabBarController.view.layoutIfNeeded()
+
+        let hitAreaView = try #require(revealHitAreaViews(in: tabBarController).first)
+        #expect(tabBarController.isTabBarHidden == true)
+
+        let didActivate = hitAreaView.accessibilityActivate()
+
+        #expect(didActivate == true)
+        #expect(tabBarController.isTabBarHidden == false)
+    }
+
     @Test func setContentNilClearsHiddenState() {
         let tabBarController = makeTestTabBarController()
         let controller = TabBarAccessoryController(tabBarController: tabBarController)

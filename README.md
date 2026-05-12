@@ -50,6 +50,7 @@ On iOS 26+, FloatingAccessoryKit uses the native `UITabAccessory` presentation w
 On iOS 26+, use UIKit's `tabBarMinimizeBehavior` when you want the tab bar to minimize while scrolling.
 
 On iOS 18, toggle the tab bar yourself with `setTabBarHidden(_:animated:)`. `FloatingAccessoryKit` keeps the accessory position in sync with the tab bar visibility.
+When the tab bar is hidden, tapping or long-pressing the empty area where the tab bar was shown restores it.
 
 ```swift
 if #available(iOS 26.0, *) {

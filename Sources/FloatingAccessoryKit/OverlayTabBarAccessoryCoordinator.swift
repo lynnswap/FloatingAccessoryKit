@@ -20,6 +20,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var contentView: UIView?
     private var position: TabBarAccessoryController.Position = .trailing
     private var hostView: OverlayAccessoryHostView?
+    private var revealHitAreaView: TabBarRevealHitAreaView?
     private var contentConstraints: [NSLayoutConstraint] = []
     private var horizontalConstraint: NSLayoutConstraint?
     private var bottomConstraint: NSLayoutConstraint?
@@ -27,6 +28,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var heightConstraint: NSLayoutConstraint?
     private var constrainedPosition: TabBarAccessoryController.Position?
     private var lastVisibleBottomY: CGFloat?
+    private var lastVisibleTabBarHeight: CGFloat?
     private var isTabBarHidden = false
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
     private var managedSafeAreaAdjustment: ManagedSafeAreaAdjustment?
@@ -71,6 +73,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         if hidden {
             isHidden = true
             restoreManagedSafeAreaAdjustment()
+            removeRevealHitAreaView()
             hideHostView(animated: animated, in: tabBarController)
         } else {
             isHidden = false
@@ -82,6 +85,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     func update(in tabBarController: UITabBarController) {
         guard !isHidden,
               let contentView else {
+            removeRevealHitAreaView()
             return
         }
 
@@ -93,10 +97,11 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         let didUpdateSize = updateContentViewSize(contentView, in: tabBarController)
         let didUpdatePosition = updatePosition(in: tabBarController)
         let didUpdateInsets = updateManagedSafeAreaAdjustment(in: tabBarController)
+        let didUpdateRevealHitArea = updateRevealHitArea(in: tabBarController)
         if let hostView {
             tabBarController.view.bringSubviewToFront(hostView)
         }
-        if didUpdateSize || didUpdatePosition || didUpdateInsets {
+        if didUpdateSize || didUpdatePosition || didUpdateInsets || didUpdateRevealHitArea {
             tabBarController.view.setNeedsLayout()
         }
     }
@@ -250,6 +255,7 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
            tabBarFrame.midY > view.bounds.midY {
             let bottomY = tabBarFrame.minY - Metrics.verticalSpacing
             lastVisibleBottomY = bottomY
+            lastVisibleTabBarHeight = tabBarFrame.height
             return bottomY
         }
 
@@ -408,6 +414,86 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         return height + Metrics.verticalSpacing
     }
 
+    private func updateRevealHitArea(in tabBarController: UITabBarController) -> Bool {
+        guard shouldInstallRevealHitArea(in: tabBarController),
+              contentView != nil,
+              let frame = revealHitAreaFrame(in: tabBarController) else {
+            return removeRevealHitAreaView()
+        }
+
+        let hitAreaView = revealHitAreaView ?? makeRevealHitAreaView(for: tabBarController)
+        var didUpdate = false
+        if hitAreaView.superview !== tabBarController.view {
+            tabBarController.view.addSubview(hitAreaView)
+            didUpdate = true
+        }
+        if hitAreaView.frame != frame {
+            hitAreaView.frame = frame
+            didUpdate = true
+        }
+        return didUpdate
+    }
+
+    private func shouldInstallRevealHitArea(in tabBarController: UITabBarController) -> Bool {
+        if isTabBarHidden || tabBarController.tabBar.isHidden {
+            return true
+        }
+
+        guard let view = tabBarController.view else {
+            return false
+        }
+
+        let tabBarFrame = tabBarController.tabBar.convert(
+            tabBarController.tabBar.bounds,
+            to: view
+        )
+        return !tabBarFrame.intersects(view.bounds) && lastVisibleBottomY == nil
+    }
+
+    private func makeRevealHitAreaView(for tabBarController: UITabBarController) -> TabBarRevealHitAreaView {
+        let hitAreaView = TabBarRevealHitAreaView(tabBarController: tabBarController)
+        revealHitAreaView = hitAreaView
+        return hitAreaView
+    }
+
+    private func revealHitAreaFrame(in tabBarController: UITabBarController) -> CGRect? {
+        guard let view = tabBarController.view else {
+            return nil
+        }
+
+        let tabBarHeight = currentTabBarHeight(in: tabBarController) ?? lastVisibleTabBarHeight ?? 49
+        let minY = view.bounds.maxY - tabBarHeight
+        let maxY = view.bounds.maxY
+        guard minY.isFinite,
+              maxY.isFinite,
+              minY < maxY else {
+            return nil
+        }
+
+        return CGRect(
+            x: view.bounds.minX,
+            y: minY,
+            width: view.bounds.width,
+            height: maxY - minY
+        )
+    }
+
+    private func currentTabBarHeight(in tabBarController: UITabBarController) -> CGFloat? {
+        let tabBarHeight = tabBarController.tabBar.bounds.height
+        return tabBarHeight.isFinite && tabBarHeight > 0 ? tabBarHeight : nil
+    }
+
+    @discardableResult
+    private func removeRevealHitAreaView() -> Bool {
+        guard let revealHitAreaView else {
+            return false
+        }
+
+        revealHitAreaView.removeFromSuperview()
+        self.revealHitAreaView = nil
+        return true
+    }
+
     private func tabBarButtonHeight(in tabBar: UITabBar) -> CGFloat? {
         tabBar.subviews
             .compactMap { view -> CGFloat? in
@@ -553,12 +639,14 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             removedWidthConstraint?.isActive = false
             removedHeightConstraint?.isActive = false
             self.restoreManagedSafeAreaAdjustment()
+            self.removeRevealHitAreaView()
             self.horizontalConstraint = nil
             self.bottomConstraint = nil
             self.widthConstraint = nil
             self.heightConstraint = nil
             self.constrainedPosition = nil
             self.lastVisibleBottomY = nil
+            self.lastVisibleTabBarHeight = nil
             if let originalTranslatesAutoresizingMaskIntoConstraints = removedOriginalTranslatesAutoresizingMaskIntoConstraints {
                 contentView.translatesAutoresizingMaskIntoConstraints = originalTranslatesAutoresizingMaskIntoConstraints
             }
@@ -604,6 +692,62 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private func advanceTransitionGeneration() -> Int {
         transitionGeneration += 1
         return transitionGeneration
+    }
+}
+
+final class TabBarRevealHitAreaView: UIView {
+    private weak var tabBarController: UITabBarController?
+
+    init(tabBarController: UITabBarController) {
+        self.tabBarController = tabBarController
+
+        super.init(frame: .zero)
+
+        backgroundColor = .clear
+        accessibilityIdentifier = "FloatingAccessoryKit.TabBarRevealHitArea"
+        isAccessibilityElement = true
+        accessibilityLabel = "Show Tab Bar"
+        accessibilityTraits = .button
+
+        addGestureRecognizer(UITapGestureRecognizer(
+            target: self,
+            action: #selector(handleTap(_:))
+        ))
+        addGestureRecognizer(UILongPressGestureRecognizer(
+            target: self,
+            action: #selector(handleLongPress(_:))
+        ))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func accessibilityActivate() -> Bool {
+        revealTabBar()
+    }
+
+    @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+        revealTabBar()
+    }
+
+    @objc func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
+        guard recognizer.state == .began else {
+            return
+        }
+
+        revealTabBar()
+    }
+
+    @discardableResult
+    func revealTabBar() -> Bool {
+        guard let tabBarController else {
+            return false
+        }
+
+        tabBarController.setTabBarHidden(false, animated: true)
+        return true
     }
 }
 

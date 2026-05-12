@@ -1,4 +1,5 @@
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 @testable import FloatingAccessoryKit
 
 @MainActor
@@ -90,6 +91,13 @@ func constraintsReferencing(_ item: AnyObject, in views: [UIView]) -> [NSLayoutC
 func overlayHostViews(in tabBarController: UITabBarController) -> [UIView] {
     tabBarController.view.subviews.filter { view in
         view.subviews.contains { $0 is UIVisualEffectView }
+    }
+}
+
+@MainActor
+func revealHitAreaViews(in tabBarController: UITabBarController) -> [TabBarRevealHitAreaView] {
+    tabBarController.view.subviews.compactMap { view in
+        view as? TabBarRevealHitAreaView
     }
 }
 
@@ -200,6 +208,12 @@ final class AccessoryLayoutHostView: UIView {
     @objc(frameForHostedElement:options:)
     dynamic func frameForHostedElement(_ element: Int, options: Int) -> CGRect {
         element == 2 ? accessoryFrame : .zero
+    }
+}
+
+final class TestLongPressGestureRecognizer: UILongPressGestureRecognizer {
+    func transition(to state: UIGestureRecognizer.State) {
+        self.state = state
     }
 }
 
