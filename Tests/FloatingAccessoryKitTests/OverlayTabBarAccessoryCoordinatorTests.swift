@@ -155,6 +155,121 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(hostView.frame.maxY > visibleBottomY)
     }
 
+    @Test func installsRevealHitAreaBehindAccessoryWhenTabBarIsHidden() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        let tabBarFrame = tabBarController.tabBar.convert(
+            tabBarController.tabBar.bounds,
+            to: tabBarController.view
+        )
+
+        coordinator.tabBarVisibilityDidChange(
+            hidden: true,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let hostView = try #require(contentView.superview)
+        let hitAreaView = try #require(revealHitAreaViews(in: tabBarController).first)
+        let expectedFrame = CGRect(
+            x: tabBarController.view.bounds.minX,
+            y: tabBarFrame.minY,
+            width: tabBarController.view.bounds.width,
+            height: tabBarController.view.bounds.maxY - tabBarFrame.minY
+        )
+        let accessoryPoint = tabBarController.view.convert(
+            CGPoint(x: hostView.bounds.midX, y: hostView.bounds.midY),
+            from: hostView
+        )
+        let revealPoint = CGPoint(x: hitAreaView.frame.minX + 4, y: hitAreaView.frame.midY)
+
+        #expect(abs(hitAreaView.frame.minY - expectedFrame.minY) <= 0.5)
+        #expect(abs(hitAreaView.frame.height - expectedFrame.height) <= 0.5)
+        #expect(tabBarController.view.hitTest(accessoryPoint, with: nil) !== hitAreaView)
+        #expect(tabBarController.view.hitTest(revealPoint, with: nil) === hitAreaView)
+        #expect(hitAreaView.gestureRecognizers?.contains { $0 is UITapGestureRecognizer } == true)
+        #expect(hitAreaView.gestureRecognizers?.contains { $0 is UILongPressGestureRecognizer } == true)
+
+        coordinator.tabBarVisibilityDidChange(
+            hidden: false,
+            animated: false,
+            in: tabBarController
+        )
+
+        #expect(revealHitAreaViews(in: tabBarController).isEmpty)
+    }
+
+    @Test func removesRevealHitAreaWhenAccessoryIsHidden() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        coordinator.tabBarVisibilityDidChange(
+            hidden: true,
+            animated: false,
+            in: tabBarController
+        )
+
+        #expect(revealHitAreaViews(in: tabBarController).isEmpty == false)
+
+        coordinator.setHidden(true, animated: false, in: tabBarController)
+
+        #expect(revealHitAreaViews(in: tabBarController).isEmpty)
+    }
+
+    @Test func revealHitAreaUsesCurrentBoundsAfterHiddenResize() throws {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        let visibleTabBarHeight = tabBarController.tabBar.convert(
+            tabBarController.tabBar.bounds,
+            to: tabBarController.view
+        ).height
+
+        coordinator.tabBarVisibilityDidChange(
+            hidden: true,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.frame = CGRect(origin: .zero, size: CGSize(width: 844, height: 390))
+        let hiddenTabBarHeight = visibleTabBarHeight + 12
+        tabBarController.tabBar.bounds = CGRect(
+            origin: tabBarController.tabBar.bounds.origin,
+            size: CGSize(width: tabBarController.tabBar.bounds.width, height: hiddenTabBarHeight)
+        )
+        coordinator.update(in: tabBarController)
+        tabBarController.view.layoutIfNeeded()
+
+        let hitAreaView = try #require(revealHitAreaViews(in: tabBarController).first)
+
+        #expect(abs(hitAreaView.frame.minY - (tabBarController.view.bounds.maxY - hiddenTabBarHeight)) <= 0.5)
+        #expect(abs(hitAreaView.frame.maxY - tabBarController.view.bounds.maxY) <= 0.5)
+    }
+
     @Test func infersHiddenTabBarWhenFirstLayoutSeesOffscreenTabBar() throws {
         let tabBarController = makeTestTabBarController()
         tabBarController.tabBar.frame.origin.y = tabBarController.view.bounds.maxY + 100
@@ -173,6 +288,7 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         let expectedBottomY = tabBarController.view.safeAreaLayoutGuide.layoutFrame.maxY - 8
 
         #expect(abs(hostView.frame.maxY - expectedBottomY) <= 0.5)
+        #expect(revealHitAreaViews(in: tabBarController).isEmpty == false)
     }
 
     @Test func directHiddenTabBarStateOverridesCachedVisiblePosition() throws {
@@ -197,6 +313,7 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         let expectedBottomY = tabBarController.view.safeAreaLayoutGuide.layoutFrame.maxY - 8
         #expect(abs(hostView.frame.maxY - expectedBottomY) <= 0.5)
         #expect(hostView.frame.maxY > visibleBottomY)
+        #expect(revealHitAreaViews(in: tabBarController).isEmpty == false)
     }
 
     @Test func keepsLastVisibleTabBarPositionWhenTabBarFrameLeavesViewBeforeHiddenCallback() throws {
