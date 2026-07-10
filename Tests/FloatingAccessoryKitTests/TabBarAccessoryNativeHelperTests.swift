@@ -178,6 +178,37 @@ struct TabBarAccessoryNativeHelperTests {
 
         #expect(container.frame == CGRect(x: 0, y: 0, width: 100, height: 48))
         #expect(TabBarAccessoryContainerSizing.availableWidth(for: container) == 100)
+        #expect(TabBarAccessoryContainerSizing.availableHeight(for: container) == 48)
+    }
+
+    @Test func sizingAvailableHeightTracksSystemFrameChanges() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
+        let container = AccessoryContainerView(frame: host.accessoryFrame)
+        let contentView = AccessoryContentView()
+        host.bind(container)
+
+        TabBarAccessoryContainerSizing.register(
+            container: container,
+            contentView: contentView,
+            position: .trailing
+        )
+        defer {
+            TabBarAccessoryContainerSizing.unregister(container: container)
+        }
+
+        host.accessoryFrame.size.height = 32
+        host.setNeedsLayout()
+        host.layoutIfNeeded()
+        #expect(TabBarAccessoryContainerSizing.availableHeight(for: container) == 32)
+
+        host.accessoryFrame.size.height = 64
+        host.setNeedsLayout()
+        host.layoutIfNeeded()
+        #expect(TabBarAccessoryContainerSizing.availableHeight(for: container) == 64)
     }
 
     @Test func sizingIgnoresInvalidContentWidth() {

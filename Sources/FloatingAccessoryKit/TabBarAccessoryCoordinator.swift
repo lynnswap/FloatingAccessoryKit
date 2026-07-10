@@ -12,6 +12,8 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var widthConstraint: NSLayoutConstraint?
     private var heightConstraint: NSLayoutConstraint?
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
+    private var contentSizeMeasurement: ContentSizeMeasurement?
+    private var needsContentSizeMeasurement = true
 
     private(set) var isHidden = false
 
@@ -26,18 +28,25 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return
         }
 
+        let isUpdatingCurrentView = contentView === view
         if contentView !== view {
             removeAccessoryView(animated: false, from: tabBarController)
             contentView = view
             tabAccessory = UITabAccessory(contentView: view)
         }
+        needsContentSizeMeasurement = true
 
         self.position = position
         isHidden = false
 
         if let tabAccessory {
-            tabBarController.setBottomAccessory(tabAccessory, animated: animated)
-            update(in: tabBarController)
+            if isUpdatingCurrentView,
+               tabBarController.bottomAccessory === tabAccessory {
+                update(in: tabBarController)
+            } else {
+                tabBarController.setBottomAccessory(tabAccessory, animated: animated)
+                update(in: tabBarController)
+            }
         }
     }
 
@@ -79,6 +88,8 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
         contentView = nil
         tabAccessory = nil
+        contentSizeMeasurement = nil
+        needsContentSizeMeasurement = true
         isHidden = false
     }
 
@@ -112,9 +123,22 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             position: position
         )
 
-        let initialSize = resolvedInitialSize(for: contentView, matching: container)
+        let maximumWidth = TabBarAccessoryContainerSizing.availableWidth(for: container)
+        let measurement = measureContentSize(
+            for: contentView,
+            maximumWidth: maximumWidth
+        )
+        contentSizeMeasurement = measurement
+        needsContentSizeMeasurement = false
+        let initialSize = resolvedSize(
+            measurement: measurement,
+            maximumWidth: maximumWidth,
+            maximumHeight: TabBarAccessoryContainerSizing.availableHeight(for: container)
+        )
         let width = contentView.widthAnchor.constraint(equalToConstant: initialSize.width)
         let height = contentView.heightAnchor.constraint(equalToConstant: initialSize.height)
+        width.identifier = "FloatingAccessoryKit.contentWidth"
+        height.identifier = "FloatingAccessoryKit.contentHeight"
         var constraints = [
             width,
             height,
@@ -152,63 +176,136 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     }
 
     private func updateContentViewSize(_ contentView: UIView, matching container: UIView) {
-        let height = container.bounds.height
-        guard height.isFinite, height > 0 else {
-            return
-        }
-
-        update(heightConstraint, to: height)
-        let width = resolvedWidth(
+        let maximumWidth = TabBarAccessoryContainerSizing.availableWidth(for: container)
+        let maximumHeight = TabBarAccessoryContainerSizing.availableHeight(for: container)
+        let measurement = measureContentSizeIfNeeded(
             for: contentView,
-            height: height,
-            maximumWidth: TabBarAccessoryContainerSizing.availableWidth(for: container)
+            maximumWidth: maximumWidth
         )
-        update(widthConstraint, to: width)
+        let size = resolvedSize(
+            measurement: measurement,
+            maximumWidth: maximumWidth,
+            maximumHeight: maximumHeight
+        )
+        update(widthConstraint, to: size.width)
+        update(heightConstraint, to: size.height)
         TabBarAccessoryContainerSizing.update(
             container: container,
-            contentWidth: width,
+            contentWidth: size.width,
             position: position
         )
     }
 
-    private func resolvedInitialSize(for view: UIView, matching container: UIView) -> CGSize {
-        let intrinsicHeight = view.intrinsicContentSize.height
-        let height: CGFloat
-        if container.bounds.height.isFinite, container.bounds.height > 0 {
-            height = container.bounds.height
-        } else if intrinsicHeight != UIView.noIntrinsicMetric,
-                  intrinsicHeight.isFinite,
-                  intrinsicHeight > 0 {
-            height = intrinsicHeight
-        } else {
-            height = 1
+    private func measureContentSizeIfNeeded(
+        for view: UIView,
+        maximumWidth: CGFloat
+    ) -> ContentSizeMeasurement {
+        if maximumWidthChanged(to: maximumWidth) {
+            needsContentSizeMeasurement = true
         }
-        let width = resolvedWidth(
-            for: view,
-            height: height,
-            maximumWidth: TabBarAccessoryContainerSizing.availableWidth(for: container)
-        )
 
-        return CGSize(width: width, height: height)
+        if let contentSizeMeasurement,
+           !needsContentSizeMeasurement {
+            return contentSizeMeasurement
+        }
+
+        let managedSizeConstraints = [widthConstraint, heightConstraint].compactMap { $0 }
+        NSLayoutConstraint.deactivate(managedSizeConstraints)
+        defer { NSLayoutConstraint.activate(managedSizeConstraints) }
+
+        let measurement = measureContentSize(
+            for: view,
+            maximumWidth: maximumWidth
+        )
+        contentSizeMeasurement = measurement
+        needsContentSizeMeasurement = false
+        return measurement
     }
 
-    private func resolvedWidth(for view: UIView, height: CGFloat, maximumWidth: CGFloat) -> CGFloat {
-        let idealSize = view.sizeThatFits(
-            CGSize(width: UIView.layoutFittingExpandedSize.width, height: height)
-        )
-        let fittingSize = view.systemLayoutSizeFitting(
-            CGSize(width: UIView.layoutFittingCompressedSize.width, height: height),
-            withHorizontalFittingPriority: .fittingSizeLevel,
-            verticalFittingPriority: .required
-        )
+    private func measureContentSize(for view: UIView, maximumWidth: CGFloat) -> ContentSizeMeasurement {
         let intrinsicSize = view.intrinsicContentSize
+        let fittingSize = view.systemLayoutSizeFitting(
+            UIView.layoutFittingCompressedSize,
+            withHorizontalFittingPriority: .fittingSizeLevel,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        let idealSize = view.sizeThatFits(
+            UIView.layoutFittingExpandedSize
+        )
+        let naturalSize = PreferredContentSize(
+            width: preferredDimension(fittingSize.width)
+                ?? preferredDimension(idealSize.width)
+                ?? preferredDimension(intrinsicSize.width),
+            height: preferredDimension(fittingSize.height)
+                ?? preferredDimension(idealSize.height)
+                ?? preferredDimension(intrinsicSize.height)
+        )
+        let constrainedFit: CGSize?
+        if let naturalWidth = naturalSize.width,
+           let constrainedWidth = preferredDimension(maximumWidth),
+           naturalWidth - constrainedWidth > 0.5 {
+            let fittingSize = view.systemLayoutSizeFitting(
+                CGSize(
+                    width: constrainedWidth,
+                    height: UIView.layoutFittingCompressedSize.height
+                ),
+                withHorizontalFittingPriority: .required,
+                verticalFittingPriority: .fittingSizeLevel
+            )
+            if let height = preferredDimension(fittingSize.height) {
+                constrainedFit = CGSize(width: constrainedWidth, height: height)
+            } else {
+                constrainedFit = nil
+            }
+        } else {
+            constrainedFit = nil
+        }
 
-        let width = preferredWidth(forHeight: height, fittingSize: idealSize)
-            ?? preferredWidth(forHeight: height, fittingSize: fittingSize)
-            ?? preferredWidth(forHeight: height, fittingSize: intrinsicSize)
-            ?? height
+        return ContentSizeMeasurement(
+            naturalSize: naturalSize,
+            constrainedFit: constrainedFit,
+            maximumWidth: maximumWidth
+        )
+    }
 
-        return cappedWidth(max(width, height), maximumWidth: maximumWidth)
+    private func maximumWidthChanged(to maximumWidth: CGFloat) -> Bool {
+        guard let previousMaximumWidth = contentSizeMeasurement?.maximumWidth else {
+            return true
+        }
+
+        switch (
+            preferredDimension(previousMaximumWidth),
+            preferredDimension(maximumWidth)
+        ) {
+        case let (.some(previous), .some(current)):
+            return abs(previous - current) > 0.5
+        case (nil, nil):
+            return false
+        default:
+            return true
+        }
+    }
+
+    private func resolvedSize(
+        measurement: ContentSizeMeasurement,
+        maximumWidth: CGFloat,
+        maximumHeight: CGFloat
+    ) -> CGSize {
+        let containerHeight = preferredDimension(maximumHeight)
+        let preferredHeight = measurement.constrainedFit?.height
+            ?? measurement.naturalSize.height
+            ?? containerHeight
+            ?? 1
+        let height = min(preferredHeight, containerHeight ?? preferredHeight)
+        let width = measurement.naturalSize.width ?? height
+
+        return CGSize(
+            width: cappedWidth(
+                max(width, height),
+                maximumWidth: maximumWidth
+            ),
+            height: height
+        )
     }
 
     private func cappedWidth(_ width: CGFloat, maximumWidth: CGFloat) -> CGFloat {
@@ -216,17 +313,14 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         return min(max(width, 1), availableWidth)
     }
 
-    private func preferredWidth(forHeight height: CGFloat, fittingSize: CGSize) -> CGFloat? {
-        if fittingSize.width.isFinite, fittingSize.width > 0,
-           fittingSize.height.isFinite, fittingSize.height > 0 {
-            return height * fittingSize.width / fittingSize.height
+    private func preferredDimension(_ value: CGFloat) -> CGFloat? {
+        guard value != UIView.noIntrinsicMetric,
+              value.isFinite,
+              value > 0 else {
+            return nil
         }
 
-        if fittingSize.width.isFinite, fittingSize.width > 0 {
-            return fittingSize.width
-        }
-
-        return nil
+        return value
     }
 
     private func update(_ constraint: NSLayoutConstraint?, to constant: CGFloat) {
@@ -239,5 +333,16 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
 
         constraint.constant = constant
+    }
+
+    private struct PreferredContentSize {
+        let width: CGFloat?
+        let height: CGFloat?
+    }
+
+    private struct ContentSizeMeasurement {
+        let naturalSize: PreferredContentSize
+        let constrainedFit: CGSize?
+        let maximumWidth: CGFloat
     }
 }

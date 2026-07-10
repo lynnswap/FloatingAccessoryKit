@@ -115,6 +115,16 @@ enum TabBarAccessoryContainerSizing {
             .max() ?? container.bounds.width
     }
 
+    static func availableHeight(for container: UIView) -> CGFloat {
+        if let height = sizingState(for: container)?.systemFrame?.height,
+           height.isFinite,
+           height > 0 {
+            return height
+        }
+
+        return container.bounds.height
+    }
+
     private static func installIfNeeded(for hostClass: AnyClass) {
         let classID = ObjectIdentifier(hostClass)
         guard installedHostClassStates[classID] == nil else {

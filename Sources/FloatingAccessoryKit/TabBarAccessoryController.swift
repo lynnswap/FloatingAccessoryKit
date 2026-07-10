@@ -51,8 +51,10 @@ public final class TabBarAccessoryController {
 
     /// Installs, replaces, moves, or removes the accessory content view.
     ///
-    /// Calling this method with the same view updates its position without
-    /// recreating the view. Passing `nil` removes the current accessory.
+    /// After changing content in a way that affects its preferred size, call
+    /// this method again with the same view. The controller remeasures it and
+    /// updates its position without replacing the installed accessory. Passing
+    /// `nil` removes the current accessory.
     ///
     /// - Parameters:
     ///   - view: The view to display as the accessory, or `nil` to remove the
