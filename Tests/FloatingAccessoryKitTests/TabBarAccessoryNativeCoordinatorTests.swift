@@ -66,7 +66,7 @@ struct TabBarAccessoryNativeCoordinatorTests {
         #expect(height.constant > 0)
     }
 
-    @Test func sameViewRecomputesIntrinsicSizeWithoutScalingToContainerHeight() throws {
+    @Test func sameViewRecomputesProposedHeightFittingWidth() throws {
         guard #available(iOS 26.0, *) else {
             return
         }
@@ -86,8 +86,10 @@ struct TabBarAccessoryNativeCoordinatorTests {
 
         let container = try #require(contentView.superview)
         let bottomAccessory = try #require(tabBarController.bottomAccessory)
-        #expect(container.bounds.height != 32)
-        #expect(try constrainedSize(of: contentView) == CGSize(width: 44, height: 32))
+        let nativeHeight = TabBarAccessoryContainerSizing.availableHeight(for: container)
+        let initialSize = try constrainedSize(of: contentView)
+        #expect(abs(initialSize.height - nativeHeight) <= 0.5)
+        #expect(initialSize.width >= nativeHeight)
 
         contentView.size = CGSize(width: 92, height: 32)
         coordinator.setAccessoryView(
@@ -101,10 +103,31 @@ struct TabBarAccessoryNativeCoordinatorTests {
 
         #expect(tabBarController.bottomAccessory === bottomAccessory)
         #expect(contentView.superview === container)
-        #expect(try constrainedSize(of: contentView) == CGSize(width: 92, height: 32))
+        let updatedSize = try constrainedSize(of: contentView)
+        let managedWidth = try managedConstraint(
+            of: contentView,
+            identifier: "FloatingAccessoryKit.contentWidth"
+        )
+        let managedHeight = try managedConstraint(
+            of: contentView,
+            identifier: "FloatingAccessoryKit.contentHeight"
+        )
+        NSLayoutConstraint.deactivate([managedWidth, managedHeight])
+        let proposedHeightFittingSize = contentView.systemLayoutSizeFitting(
+            CGSize(width: UIView.layoutFittingCompressedSize.width, height: nativeHeight),
+            withHorizontalFittingPriority: .fittingSizeLevel,
+            verticalFittingPriority: .required
+        )
+        NSLayoutConstraint.activate([managedWidth, managedHeight])
+        let expectedWidth = max(
+            nativeHeight,
+            nativeHeight * proposedHeightFittingSize.width / proposedHeightFittingSize.height
+        )
+        #expect(abs(updatedSize.height - nativeHeight) <= 0.5)
+        #expect(abs(updatedSize.width - expectedWidth) <= 0.5)
     }
 
-    @Test func sameStackViewRecomputesFittingSizeAsArrangedSubviewsChange() throws {
+    @Test func systemMenuButtonsFitNativeHeightAsSameStackGrows() throws {
         guard #available(iOS 26.0, *) else {
             return
         }
@@ -114,17 +137,17 @@ struct TabBarAccessoryNativeCoordinatorTests {
         let stackView = UIStackView()
         stackView.axis = .horizontal
         stackView.spacing = 4
+        stackView.translatesAutoresizingMaskIntoConstraints = false
         var installedAccessory: UITabAccessory?
         var installedContainer: UIView?
+        var previousWidth: CGFloat?
 
-        for expectedWidth in [CGFloat(44), 92, 140] {
-            let item = UIView()
-            item.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                item.widthAnchor.constraint(equalToConstant: 44),
-                item.heightAnchor.constraint(equalToConstant: 44)
-            ])
-            stackView.addArrangedSubview(item)
+        for buttonCount in 1...3 {
+            let button = makeSystemMenuButton()
+            #expect(button.constraints.allSatisfy { constraint in
+                constraint.firstAttribute != .width && constraint.firstAttribute != .height
+            })
+            stackView.addArrangedSubview(button)
 
             coordinator.setAccessoryView(
                 stackView,
@@ -144,8 +167,52 @@ struct TabBarAccessoryNativeCoordinatorTests {
                 installedAccessory = bottomAccessory
                 installedContainer = container
             }
-            #expect(try constrainedSize(of: stackView) == CGSize(width: expectedWidth, height: 44))
+            let size = try constrainedSize(of: stackView)
+            let nativeHeight = TabBarAccessoryContainerSizing.availableHeight(for: container)
+            let referenceStack = makeSystemButtonStack(buttonCount: buttonCount)
+            let fittingSize = referenceStack.systemLayoutSizeFitting(
+                CGSize(width: UIView.layoutFittingCompressedSize.width, height: nativeHeight),
+                withHorizontalFittingPriority: .fittingSizeLevel,
+                verticalFittingPriority: .required
+            )
+            let expectedWidth = buttonCount == 1 ? nativeHeight : fittingSize.width
+
+            #expect(abs(size.height - nativeHeight) <= 0.5)
+            #expect(abs(size.width - expectedWidth) <= 0.5)
+            #expect(abs(container.bounds.width - size.width) <= 1)
+            if buttonCount == 1 {
+                #expect(abs(size.width - size.height) <= 0.5)
+                #expect(abs(container.bounds.width - container.bounds.height) <= 0.5)
+            }
+            if let previousWidth {
+                #expect(size.width > previousWidth)
+            }
+            previousWidth = size.width
         }
+    }
+
+    @Test func nearSquareNaturalSizeSnapsNativeContainerToSquare() throws {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let coordinator = TabBarAccessoryCoordinator()
+        let contentView = MutableSizeView(size: CGSize(width: 48.01, height: 48))
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        coordinator.update(in: tabBarController)
+
+        let container = try #require(contentView.superview)
+        let size = try constrainedSize(of: contentView)
+        #expect(abs(size.width - size.height) <= 0.5)
+        #expect(abs(container.bounds.width - container.bounds.height) <= 0.5)
     }
 
     @Test func unchangedWidthLifecycleUsesCachedMeasurementUntilSameViewResubmission() throws {
@@ -173,9 +240,11 @@ struct TabBarAccessoryNativeCoordinatorTests {
             of: contentView,
             identifier: "FloatingAccessoryKit.contentHeight"
         )
+        let nativeHeight = TabBarAccessoryContainerSizing.availableHeight(for: container)
+        let initialSize = CGSize(width: nativeHeight, height: nativeHeight)
         let initialMeasurementCount = contentView.measurementCount
         #expect(initialMeasurementCount > 0)
-        #expect(try constrainedSize(of: contentView) == CGSize(width: 44, height: 44))
+        #expect(try constrainedSize(of: contentView) == initialSize)
 
         for _ in 0..<3 {
             tabBarController.view.setNeedsLayout()
@@ -188,7 +257,7 @@ struct TabBarAccessoryNativeCoordinatorTests {
         tabBarController.view.layoutIfNeeded()
 
         #expect(contentView.measurementCount == initialMeasurementCount)
-        #expect(try constrainedSize(of: contentView) == CGSize(width: 44, height: 44))
+        #expect(try constrainedSize(of: contentView) == initialSize)
 
         accessoryController.setContent(contentView)
         tabBarController.view.setNeedsLayout()
@@ -211,21 +280,19 @@ struct TabBarAccessoryNativeCoordinatorTests {
                 identifier: "FloatingAccessoryKit.contentHeight"
             ) === heightConstraint
         )
-        #expect(try constrainedSize(of: contentView) == CGSize(width: 92, height: 44))
+        let updatedSize = try constrainedSize(of: contentView)
+        #expect(abs(updatedSize.height - nativeHeight) <= 0.5)
+        #expect(abs(updatedSize.width - nativeHeight * 92 / 44) <= 0.5)
     }
 
-    @Test func explicitContentSizeConstraintsRemainThePreferredSize() throws {
+    @Test func availableHeightChangeRemeasuresSameView() throws {
         guard #available(iOS 26.0, *) else {
             return
         }
 
         let tabBarController = makeTestTabBarController()
         let coordinator = TabBarAccessoryCoordinator()
-        let contentView = MutableSizeView(size: CGSize(width: 44, height: 44))
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        let explicitWidth = contentView.widthAnchor.constraint(equalToConstant: 92)
-        let explicitHeight = contentView.heightAnchor.constraint(equalToConstant: 32)
-        NSLayoutConstraint.activate([explicitWidth, explicitHeight])
+        let contentView = CountingSizeView(size: CGSize(width: 44, height: 44))
 
         coordinator.setAccessoryView(
             contentView,
@@ -236,21 +303,25 @@ struct TabBarAccessoryNativeCoordinatorTests {
         tabBarController.view.layoutIfNeeded()
         coordinator.update(in: tabBarController)
 
-        #expect(try constrainedSize(of: contentView) == CGSize(width: 92, height: 32))
+        let container = try #require(contentView.superview)
+        let bottomAccessory = try #require(tabBarController.bottomAccessory)
+        let initialMeasurementCount = contentView.measurementCount
+        TabBarAccessoryContainerSizing.unregister(container: container)
 
-        contentView.size = CGSize(width: 140, height: 44)
-        coordinator.setAccessoryView(
-            contentView,
-            position: .trailing,
-            animated: false,
-            in: tabBarController
-        )
-        tabBarController.view.layoutIfNeeded()
+        container.bounds.size.height = 32
         coordinator.update(in: tabBarController)
 
-        #expect(explicitWidth.isActive)
-        #expect(explicitHeight.isActive)
-        #expect(try constrainedSize(of: contentView) == CGSize(width: 92, height: 32))
+        #expect(contentView.measurementCount > initialMeasurementCount)
+        #expect(try constrainedSize(of: contentView) == CGSize(width: 32, height: 32))
+        let compactMeasurementCount = contentView.measurementCount
+
+        container.bounds.size.height = 64
+        coordinator.update(in: tabBarController)
+
+        #expect(tabBarController.bottomAccessory === bottomAccessory)
+        #expect(contentView.superview === container)
+        #expect(contentView.measurementCount > compactMeasurementCount)
+        #expect(try constrainedSize(of: contentView) == CGSize(width: 64, height: 64))
     }
 
     @Test func sameViewPositionChangesKeepNativeIdentityAndReplaceAlignment() throws {
@@ -306,7 +377,7 @@ struct TabBarAccessoryNativeCoordinatorTests {
         #expect(leading.isActive)
     }
 
-    @Test func widthDependentContentRefitsHeightAtNativeMaximumWidth() throws {
+    @Test func aspectFittingWidthTracksNativeMaximumWidth() throws {
         guard #available(iOS 26.0, *) else {
             return
         }
@@ -329,13 +400,9 @@ struct TabBarAccessoryNativeCoordinatorTests {
         let container = try #require(contentView.superview)
         let maximumWidth = TabBarAccessoryContainerSizing.availableWidth(for: container)
         let maximumHeight = TabBarAccessoryContainerSizing.availableHeight(for: container)
-        let expectedHeight = min(
-            ceil(contentView.naturalSize.width / maximumWidth) * contentView.naturalSize.height,
-            maximumHeight
-        )
         #expect(
             try constrainedSize(of: contentView)
-                == CGSize(width: maximumWidth, height: expectedHeight)
+                == CGSize(width: maximumWidth, height: maximumHeight)
         )
 
         tabBarController.view.frame.size.width = 200
@@ -350,15 +417,10 @@ struct TabBarAccessoryNativeCoordinatorTests {
         let shrunkenMaximumHeight = TabBarAccessoryContainerSizing.availableHeight(
             for: shrunkenContainer
         )
-        let shrunkenExpectedHeight = min(
-            ceil(contentView.naturalSize.width / shrunkenMaximumWidth)
-                * contentView.naturalSize.height,
-            shrunkenMaximumHeight
-        )
         #expect(shrunkenMaximumWidth < maximumWidth)
         #expect(
             try constrainedSize(of: contentView)
-                == CGSize(width: shrunkenMaximumWidth, height: shrunkenExpectedHeight)
+                == CGSize(width: shrunkenMaximumWidth, height: shrunkenMaximumHeight)
         )
 
         tabBarController.view.frame.size.width = 844
@@ -368,11 +430,15 @@ struct TabBarAccessoryNativeCoordinatorTests {
 
         let grownContainer = try #require(contentView.superview)
         let grownMaximumWidth = TabBarAccessoryContainerSizing.availableWidth(for: grownContainer)
-        #expect(grownMaximumWidth > contentView.naturalSize.width)
-        #expect(try constrainedSize(of: contentView) == contentView.naturalSize)
+        let grownMaximumHeight = TabBarAccessoryContainerSizing.availableHeight(for: grownContainer)
+        #expect(grownMaximumWidth > shrunkenMaximumWidth)
+        #expect(
+            try constrainedSize(of: contentView)
+                == CGSize(width: grownMaximumWidth, height: grownMaximumHeight)
+        )
     }
 
-    @Test func multilineLabelRefitsHeightAtNativeMaximumWidth() throws {
+    @Test func multilineLabelIsBoundedByNativeAccessorySize() throws {
         guard #available(iOS 26.0, *) else {
             return
         }
@@ -402,19 +468,10 @@ struct TabBarAccessoryNativeCoordinatorTests {
 
         let maximumWidth = TabBarAccessoryContainerSizing.availableWidth(for: container)
         let maximumHeight = TabBarAccessoryContainerSizing.availableHeight(for: container)
-        let naturalWidth = makeLabel(text).intrinsicContentSize.width
-        let expectedFittingSize = makeLabel(text).systemLayoutSizeFitting(
-            CGSize(width: maximumWidth, height: UIView.layoutFittingCompressedSize.height),
-            withHorizontalFittingPriority: .required,
-            verticalFittingPriority: .fittingSizeLevel
-        )
-        let expectedHeight = min(expectedFittingSize.height, maximumHeight)
         let constrainedSize = try constrainedSize(of: contentView)
 
-        #expect(naturalWidth > maximumWidth)
-        #expect(expectedHeight > contentView.font.lineHeight)
         #expect(abs(constrainedSize.width - maximumWidth) <= 0.5)
-        #expect(abs(constrainedSize.height - expectedHeight) <= 0.5)
+        #expect(abs(constrainedSize.height - maximumHeight) <= 0.5)
     }
 
     @Test func overlaySameViewResubmissionKeepsHostAndUpdatesSize() throws {
@@ -443,7 +500,7 @@ struct TabBarAccessoryNativeCoordinatorTests {
         #expect(hostView.bounds.size == CGSize(width: 96, height: 64))
     }
 
-    @Test func preferredSizeIsCappedToNativeContainerBounds() throws {
+    @Test func oversizedSquarePreferredSizeUsesNativeSquare() throws {
         guard #available(iOS 26.0, *) else {
             return
         }
@@ -478,7 +535,7 @@ struct TabBarAccessoryNativeCoordinatorTests {
         coordinator.update(in: tabBarController)
 
         let constrainedSize = try constrainedSize(of: contentView)
-        #expect(abs(constrainedSize.width - maximumWidth) <= 0.5)
+        #expect(abs(constrainedSize.width - maximumHeight) <= 0.5)
         #expect(abs(constrainedSize.height - maximumHeight) <= 0.5)
     }
 
@@ -558,6 +615,30 @@ struct TabBarAccessoryNativeCoordinatorTests {
         #expect(tabBarController.bottomAccessory != nil)
         #expect(tabBarController.bottomAccessory !== firstAccessory)
         #expect(coordinator.isHidden == false)
+    }
+
+    private func makeSystemMenuButton() -> UIButton {
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: "plus")
+        configuration.buttonSize = .large
+        configuration.cornerStyle = .capsule
+
+        let button = UIButton(configuration: configuration)
+        button.menu = UIMenu(children: [
+            UIAction(title: "Action") { _ in }
+        ])
+        button.showsMenuAsPrimaryAction = true
+        return button
+    }
+
+    private func makeSystemButtonStack(buttonCount: Int) -> UIStackView {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.spacing = 4
+        for _ in 0..<buttonCount {
+            stackView.addArrangedSubview(makeSystemMenuButton())
+        }
+        return stackView
     }
 
     private func constrainedSize(of view: UIView) throws -> CGSize {
