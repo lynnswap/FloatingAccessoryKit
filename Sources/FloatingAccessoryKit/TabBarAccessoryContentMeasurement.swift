@@ -40,10 +40,10 @@ struct TabBarAccessoryContentMeasurement {
         switch policy {
         case .intrinsicAspect where hasIntrinsicSize(intrinsicSize):
             candidates = [
+                intrinsicSize,
                 idealSize,
                 proposedHeightFittingSize,
-                naturalFittingSize,
-                intrinsicSize
+                naturalFittingSize
             ]
         case .intrinsicAspect, .proposedHeight:
             candidates = [

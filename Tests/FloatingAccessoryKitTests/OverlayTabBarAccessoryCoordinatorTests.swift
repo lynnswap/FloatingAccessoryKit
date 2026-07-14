@@ -655,6 +655,28 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(try #require(wideContentView.superview).bounds.size == CGSize(width: 128, height: 64))
     }
 
+    @Test func intrinsicOnlyContentPreservesAspectRatio() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        addTestTabBarButton(height: 64, to: tabBarController)
+        let coordinator = OverlayTabBarAccessoryCoordinator()
+        let contentView = IntrinsicOnlySizeView(
+            size: CGSize(width: 96, height: 48)
+        )
+
+        coordinator.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(
+            try #require(contentView.superview).bounds.size
+                == CGSize(width: 128, height: 64)
+        )
+    }
+
     @Test func usesTabBarButtonHeightForContentWithoutPreferredSize() throws {
         let tabBarController = makeEmptyTestTabBarController()
         addTestTabBarButton(height: 64, to: tabBarController)
