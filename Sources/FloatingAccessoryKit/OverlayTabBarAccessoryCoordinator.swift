@@ -332,33 +332,11 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         )
         let targetHeight = tabBarButtonHeight(in: tabBarController.tabBar)
             ?? fallbackHeight
-        let naturalFittingSize = view.systemLayoutSizeFitting(
-            UIView.layoutFittingCompressedSize,
-            withHorizontalFittingPriority: .fittingSizeLevel,
-            verticalFittingPriority: .fittingSizeLevel
+        let fittedWidth = TabBarAccessoryContentMeasurement.width(
+            for: view,
+            proposedHeight: targetHeight,
+            policy: .intrinsicAspect
         )
-        let proposedHeightFittingSize = view.systemLayoutSizeFitting(
-            CGSize(width: UIView.layoutFittingCompressedSize.width, height: targetHeight),
-            withHorizontalFittingPriority: .fittingSizeLevel,
-            verticalFittingPriority: .required
-        )
-        let idealSize = view.sizeThatFits(
-            CGSize(width: UIView.layoutFittingExpandedSize.width, height: targetHeight)
-        )
-        let intrinsicSize = view.intrinsicContentSize
-        let fittedWidth: CGFloat
-        if isNearlySquare(naturalFittingSize) {
-            fittedWidth = targetHeight
-        } else {
-            fittedWidth = preferredWidth(
-                forHeight: targetHeight,
-                fittingSize: proposedHeightFittingSize
-            )
-                ?? preferredWidth(forHeight: targetHeight, fittingSize: idealSize)
-                ?? preferredWidth(forHeight: targetHeight, fittingSize: naturalFittingSize)
-                ?? preferredWidth(forHeight: targetHeight, fittingSize: intrinsicSize)
-                ?? targetHeight
-        }
 
         return CGSize(
             width: min(max(fittedWidth, targetHeight), maximumWidth(in: tabBarController)),
@@ -565,27 +543,6 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
 
         return value
-    }
-
-    private func preferredWidth(forHeight height: CGFloat, fittingSize: CGSize) -> CGFloat? {
-        if fittingSize.width.isFinite, fittingSize.width > 0,
-           fittingSize.height.isFinite, fittingSize.height > 0 {
-            return height * fittingSize.width / fittingSize.height
-        }
-
-        if fittingSize.width.isFinite, fittingSize.width > 0 {
-            return fittingSize.width
-        }
-
-        return nil
-    }
-
-    private func isNearlySquare(_ size: CGSize) -> Bool {
-        guard preferredDimension(size.width) != nil,
-              preferredDimension(size.height) != nil else {
-            return false
-        }
-        return abs(size.width - size.height) <= 0.5
     }
 
     private func showHostView(animated: Bool, in tabBarController: UITabBarController) {

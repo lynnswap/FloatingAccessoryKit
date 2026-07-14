@@ -258,30 +258,11 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         maximumHeight: CGFloat
     ) -> ContentSizeMeasurement {
         let height = proposedHeight(for: view, maximumHeight: maximumHeight)
-        let naturalFittingSize = view.systemLayoutSizeFitting(
-            UIView.layoutFittingCompressedSize,
-            withHorizontalFittingPriority: .fittingSizeLevel,
-            verticalFittingPriority: .fittingSizeLevel
+        let fittedWidth = TabBarAccessoryContentMeasurement.width(
+            for: view,
+            proposedHeight: height,
+            policy: .proposedHeight
         )
-        let proposedHeightFittingSize = view.systemLayoutSizeFitting(
-            CGSize(width: UIView.layoutFittingCompressedSize.width, height: height),
-            withHorizontalFittingPriority: .fittingSizeLevel,
-            verticalFittingPriority: .required
-        )
-        let idealSize = view.sizeThatFits(
-            CGSize(width: UIView.layoutFittingExpandedSize.width, height: height)
-        )
-        let intrinsicSize = view.intrinsicContentSize
-        let fittedWidth: CGFloat
-        if isNearlySquare(naturalFittingSize) {
-            fittedWidth = height
-        } else {
-            fittedWidth = preferredWidth(forHeight: height, fittingSize: proposedHeightFittingSize)
-                ?? preferredWidth(forHeight: height, fittingSize: idealSize)
-                ?? preferredWidth(forHeight: height, fittingSize: naturalFittingSize)
-                ?? preferredWidth(forHeight: height, fittingSize: intrinsicSize)
-                ?? height
-        }
         let width = max(fittedWidth, height)
         let size = CGSize(
             width: cappedWidth(width, maximumWidth: maximumWidth),
@@ -330,27 +311,6 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private func cappedWidth(_ width: CGFloat, maximumWidth: CGFloat) -> CGFloat {
         let availableWidth = maximumWidth.isFinite && maximumWidth > 0 ? maximumWidth : width
         return min(max(width, 1), availableWidth)
-    }
-
-    private func preferredWidth(forHeight height: CGFloat, fittingSize: CGSize) -> CGFloat? {
-        if fittingSize.width.isFinite, fittingSize.width > 0,
-           fittingSize.height.isFinite, fittingSize.height > 0 {
-            return height * fittingSize.width / fittingSize.height
-        }
-
-        if fittingSize.width.isFinite, fittingSize.width > 0 {
-            return fittingSize.width
-        }
-
-        return nil
-    }
-
-    private func isNearlySquare(_ size: CGSize) -> Bool {
-        guard preferredDimension(size.width) != nil,
-              preferredDimension(size.height) != nil else {
-            return false
-        }
-        return abs(size.width - size.height) <= 0.5
     }
 
     private func preferredDimension(_ value: CGFloat) -> CGFloat? {
