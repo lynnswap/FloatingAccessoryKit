@@ -95,6 +95,105 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(hostView.layer.animation(forKey: "opacity") == nil)
     }
 
+    @Test func sameViewButtonCountTransitionsAnimateHostGeometryInPlace() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        addTestTabBarButton(height: 48, to: tabBarController)
+        let coordinator = OverlayTabBarAccessoryCoordinator(
+            isReduceMotionEnabled: { false }
+        )
+        TabBarAccessoryViewLifecycleHooks.register(coordinator, for: tabBarController)
+        let plusButton = makeSystemMenuButton()
+        let inspectorButton = makeSystemMenuButton()
+        let otherAccountButton = makeSystemMenuButton()
+        let stackView = UIStackView(arrangedSubviews: [plusButton])
+        stackView.axis = .horizontal
+        stackView.spacing = 4
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        coordinator.setAccessoryView(
+            stackView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let installedHost = try #require(stackView.superview)
+        let installedConstraintIDs = constraintIDs(in: [tabBarController.view, installedHost])
+
+        func transition(animated: Bool) -> CGSize {
+            coordinator.setAccessoryView(
+                stackView,
+                position: .trailing,
+                animated: animated,
+                in: tabBarController
+            )
+            tabBarController.view.layoutIfNeeded()
+
+            #expect(stackView.superview === installedHost)
+            #expect(constraintIDs(in: [tabBarController.view, installedHost]) == installedConstraintIDs)
+            if animated {
+                #expect(installedHost.layer.animationKeys()?.isEmpty == false)
+            }
+            return installedHost.bounds.size
+        }
+
+        let oneButtonSize = installedHost.bounds.size
+        #expect(abs(oneButtonSize.width - oneButtonSize.height) <= 0.5)
+
+        stackView.insertArrangedSubview(inspectorButton, at: 0)
+        let twoButtonSize = transition(animated: true)
+        #expect(twoButtonSize.width > oneButtonSize.width)
+
+        stackView.insertArrangedSubview(otherAccountButton, at: 0)
+        let threeButtonSize = transition(animated: true)
+        #expect(threeButtonSize.width > twoButtonSize.width)
+
+        stackView.removeArrangedSubview(otherAccountButton)
+        otherAccountButton.removeFromSuperview()
+        let returnedTwoButtonSize = transition(animated: true)
+        #expect(abs(returnedTwoButtonSize.width - twoButtonSize.width) <= 0.5)
+
+        stackView.removeArrangedSubview(inspectorButton)
+        inspectorButton.removeFromSuperview()
+        let returnedOneButtonSize = transition(animated: true)
+        #expect(abs(returnedOneButtonSize.width - oneButtonSize.width) <= 0.5)
+
+        _ = transition(animated: false)
+        #expect(stackView.arrangedSubviews == [plusButton])
+    }
+
+    @Test func sameViewGeometryUpdateDisablesAnimationForReduceMotion() throws {
+        let tabBarController = makeEmptyTestTabBarController()
+        addTestTabBarButton(height: 48, to: tabBarController)
+        let coordinator = OverlayTabBarAccessoryCoordinator(
+            isReduceMotionEnabled: { true }
+        )
+        let stackView = makeSystemButtonStack(buttonCount: 1)
+
+        coordinator.setAccessoryView(
+            stackView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        let installedHost = try #require(stackView.superview)
+        let initialSize = installedHost.bounds.size
+        stackView.insertArrangedSubview(makeSystemMenuButton(), at: 0)
+        coordinator.setAccessoryView(
+            stackView,
+            position: .trailing,
+            animated: true,
+            in: tabBarController
+        )
+
+        #expect(stackView.superview === installedHost)
+        #expect(installedHost.bounds.width > initialSize.width)
+        #expect(installedHost.layer.animationKeys()?.isEmpty ?? true)
+    }
+
     @Test func hiddenAccessoryDoesNotUpdatePositionUntilShownAgain() throws {
         let tabBarController = makeTestTabBarController()
         let coordinator = OverlayTabBarAccessoryCoordinator()
@@ -871,5 +970,29 @@ struct OverlayTabBarAccessoryCoordinatorTests {
         #expect(hostView.superview === tabBarController.view)
         #expect(abs(hostView.frame.minX - (safeAreaFrame.minX + 8)) <= 0.5)
         #expect(coordinator.isHidden == false)
+    }
+
+    private func makeSystemMenuButton() -> UIButton {
+        var configuration = UIButton.Configuration.plain()
+        configuration.image = UIImage(systemName: "plus")
+        configuration.buttonSize = .large
+        configuration.cornerStyle = .capsule
+
+        let button = UIButton(configuration: configuration)
+        button.menu = UIMenu(children: [
+            UIAction(title: "Action") { _ in }
+        ])
+        button.showsMenuAsPrimaryAction = true
+        return button
+    }
+
+    private func makeSystemButtonStack(buttonCount: Int) -> UIStackView {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.spacing = 4
+        for _ in 0..<buttonCount {
+            stackView.addArrangedSubview(makeSystemMenuButton())
+        }
+        return stackView
     }
 }

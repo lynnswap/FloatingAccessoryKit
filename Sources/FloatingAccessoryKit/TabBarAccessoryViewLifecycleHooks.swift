@@ -17,6 +17,7 @@ enum TabBarAccessoryViewLifecycleHooks {
     private static var viewIsAppearingBlock: Any?
     private static var setTabBarHiddenBlock: Any?
     private static var entries: [Entry] = []
+    private static var automaticUpdateSuspensionDepths: [ObjectIdentifier: Int] = [:]
 
     static func register(
         _ coordinator: any TabBarAccessoryCoordinating,
@@ -28,6 +29,23 @@ enum TabBarAccessoryViewLifecycleHooks {
             return
         }
         entries.append(Entry(tabBarController: tabBarController, coordinator: coordinator))
+    }
+
+    static func withAutomaticUpdatesSuspended<Result>(
+        for tabBarController: UITabBarController,
+        _ body: () throws -> Result
+    ) rethrows -> Result {
+        let identifier = ObjectIdentifier(tabBarController)
+        automaticUpdateSuspensionDepths[identifier, default: 0] += 1
+        defer {
+            let remainingDepth = automaticUpdateSuspensionDepths[identifier, default: 1] - 1
+            if remainingDepth == 0 {
+                automaticUpdateSuspensionDepths.removeValue(forKey: identifier)
+            } else {
+                automaticUpdateSuspensionDepths[identifier] = remainingDepth
+            }
+        }
+        return try body()
     }
 
     private static func installIfNeeded() {
@@ -124,6 +142,9 @@ enum TabBarAccessoryViewLifecycleHooks {
 
     private static func updateRegisteredCoordinators(for tabBarController: UITabBarController) {
         pruneEntries()
+        guard automaticUpdateSuspensionDepths[ObjectIdentifier(tabBarController)] == nil else {
+            return
+        }
         entries
             .filter { $0.tabBarController === tabBarController }
             .forEach { $0.coordinator?.update(in: tabBarController) }

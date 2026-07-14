@@ -563,27 +563,16 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
     }
 
     private func updateAccessory(animated: Bool) {
-        let animations = {
-            self.sampleTabBarController.setAccessory(
-                self.accessoryView,
-                position: self.accessoryPosition,
-                animated: animated
-            )
-            self.sampleTabBarController.setAccessoryHidden(
-                self.isAccessoryHidden,
-                animated: animated
-            )
-            self.sampleTabBarController.view.layoutIfNeeded()
-        }
-
-        guard animated else {
-            animations()
-            return
-        }
-
-        UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
-            animations()
-        }
+        sampleTabBarController.setAccessory(
+            accessoryView,
+            position: accessoryPosition,
+            animated: animated
+        )
+        sampleTabBarController.setAccessoryHidden(
+            isAccessoryHidden,
+            animated: animated
+        )
+        sampleTabBarController.view.layoutIfNeeded()
     }
 
     private func selectedAccessoryPosition() -> TabBarAccessoryController.Position {

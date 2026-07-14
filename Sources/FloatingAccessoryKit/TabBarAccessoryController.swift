@@ -54,9 +54,12 @@ public final class TabBarAccessoryController {
     /// After changing content in a way that affects its preferred size, call
     /// this method again with the same view. The controller remeasures it and
     /// updates its position without replacing the installed accessory. Passing
-    /// `nil` removes the current accessory. On iOS 26+, the native accessory
-    /// height is proposed to the content view and its fitting width determines
-    /// the platter width, with near-square content snapped to an exact square.
+    /// `true` for `animated` asks the container to animate that in-place update;
+    /// passing `nil` removes the current accessory. On iOS 26+, the native
+    /// accessory height is proposed to the content view and its fitting width
+    /// determines the platter width, with near-square content snapped to an
+    /// exact square. In-place geometry updates honor Reduce Motion on every
+    /// supported OS version.
     /// The controller owns the installed view's width and height. Express its
     /// natural size with intrinsic sizing and content-hugging and compression-
     /// resistance priorities; active required constant width or height

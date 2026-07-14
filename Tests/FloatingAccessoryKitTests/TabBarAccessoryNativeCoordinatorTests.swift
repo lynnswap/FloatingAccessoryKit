@@ -191,6 +191,162 @@ struct TabBarAccessoryNativeCoordinatorTests {
         }
     }
 
+    @Test func sameViewButtonCountTransitionsResubmitNativeAccessoryWithAnimation() throws {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeRecordingTestTabBarController()
+        let coordinator = TabBarAccessoryCoordinator()
+        TabBarAccessoryViewLifecycleHooks.register(coordinator, for: tabBarController)
+        let plusButton = makeSystemMenuButton()
+        let inspectorButton = makeSystemMenuButton()
+        let otherAccountButton = makeSystemMenuButton()
+        let stackView = UIStackView(arrangedSubviews: [plusButton])
+        stackView.axis = .horizontal
+        stackView.spacing = 4
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        coordinator.setAccessoryView(
+            stackView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        coordinator.update(in: tabBarController)
+
+        let installedAccessory = try #require(tabBarController.bottomAccessory)
+        let installedContainer = try #require(stackView.superview)
+        let initialCall = try #require(tabBarController.setBottomAccessoryCalls.last)
+        #expect(initialCall.accessory === installedAccessory)
+        #expect(initialCall.animated == false)
+
+        func transition(animated: Bool) throws -> CGSize {
+            coordinator.setAccessoryView(
+                stackView,
+                position: .trailing,
+                animated: animated,
+                in: tabBarController
+            )
+            tabBarController.view.layoutIfNeeded()
+            coordinator.update(in: tabBarController)
+
+            #expect(tabBarController.bottomAccessory === installedAccessory)
+            #expect(stackView.superview === installedContainer)
+            let call = try #require(tabBarController.setBottomAccessoryCalls.last)
+            #expect(call.accessory === installedAccessory)
+            #expect(call.animated == animated)
+            let contentSize = try constrainedSize(of: stackView)
+            #expect(abs(installedContainer.bounds.width - contentSize.width) <= 1)
+            return contentSize
+        }
+
+        let oneButtonSize = try constrainedSize(of: stackView)
+        #expect(abs(oneButtonSize.width - oneButtonSize.height) <= 0.5)
+
+        stackView.insertArrangedSubview(inspectorButton, at: 0)
+        let twoButtonSize = try transition(animated: true)
+        #expect(twoButtonSize.width > oneButtonSize.width)
+
+        stackView.insertArrangedSubview(otherAccountButton, at: 0)
+        let threeButtonSize = try transition(animated: true)
+        #expect(threeButtonSize.width > twoButtonSize.width)
+
+        stackView.removeArrangedSubview(otherAccountButton)
+        otherAccountButton.removeFromSuperview()
+        let returnedTwoButtonSize = try transition(animated: true)
+        #expect(abs(returnedTwoButtonSize.width - twoButtonSize.width) <= 0.5)
+
+        stackView.removeArrangedSubview(inspectorButton)
+        inspectorButton.removeFromSuperview()
+        let returnedOneButtonSize = try transition(animated: true)
+        #expect(abs(returnedOneButtonSize.width - oneButtonSize.width) <= 0.5)
+
+        _ = try transition(animated: false)
+        #expect(tabBarController.setBottomAccessoryCalls.map(\.animated) == [
+            false,
+            true,
+            true,
+            true,
+            true,
+            false
+        ])
+        #expect(stackView.arrangedSubviews == [plusButton])
+    }
+
+    @Test func sameViewUpdateDisablesAnimationForReduceMotion() throws {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeRecordingTestTabBarController()
+        let coordinator = TabBarAccessoryCoordinator(
+            isReduceMotionEnabled: { true }
+        )
+        let stackView = makeSystemButtonStack(buttonCount: 1)
+
+        coordinator.setAccessoryView(
+            stackView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        let installedAccessory = try #require(tabBarController.bottomAccessory)
+        let installedContainer = try #require(stackView.superview)
+
+        stackView.insertArrangedSubview(makeSystemMenuButton(), at: 0)
+        coordinator.setAccessoryView(
+            stackView,
+            position: .trailing,
+            animated: true,
+            in: tabBarController
+        )
+
+        #expect(tabBarController.bottomAccessory === installedAccessory)
+        #expect(stackView.superview === installedContainer)
+        #expect(tabBarController.setBottomAccessoryCalls.last?.animated == false)
+        #expect(try constrainedSize(of: stackView).width > installedContainer.bounds.height)
+    }
+
+    @Test func sameViewUpdateDisablesAnimationInsideNonanimatedTransaction() throws {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeRecordingTestTabBarController()
+        let coordinator = TabBarAccessoryCoordinator(
+            isReduceMotionEnabled: { false }
+        )
+        let stackView = makeSystemButtonStack(buttonCount: 1)
+
+        coordinator.setAccessoryView(
+            stackView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        let installedAccessory = try #require(tabBarController.bottomAccessory)
+        let installedContainer = try #require(stackView.superview)
+
+        stackView.insertArrangedSubview(makeSystemMenuButton(), at: 0)
+        UIView.performWithoutAnimation {
+            coordinator.setAccessoryView(
+                stackView,
+                position: .trailing,
+                animated: true,
+                in: tabBarController
+            )
+        }
+
+        #expect(tabBarController.bottomAccessory === installedAccessory)
+        #expect(stackView.superview === installedContainer)
+        #expect(tabBarController.setBottomAccessoryCalls.last?.animated == false)
+        #expect(try constrainedSize(of: stackView).width > installedContainer.bounds.height)
+    }
+
     @Test func nearSquareNaturalSizeSnapsNativeContainerToSquare() throws {
         guard #available(iOS 26.0, *) else {
             return
@@ -641,6 +797,16 @@ struct TabBarAccessoryNativeCoordinatorTests {
         return stackView
     }
 
+    @available(iOS 26.0, *)
+    private func makeRecordingTestTabBarController() -> RecordingBottomAccessoryTabBarController {
+        let tabBarController = RecordingBottomAccessoryTabBarController()
+        tabBarController.viewControllers = [UIViewController()]
+        tabBarController.loadViewIfNeeded()
+        tabBarController.view.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        tabBarController.view.layoutIfNeeded()
+        return tabBarController
+    }
+
     private func constrainedSize(of view: UIView) throws -> CGSize {
         let width = try managedConstraint(
             of: view,
@@ -674,6 +840,28 @@ struct TabBarAccessoryNativeCoordinatorTests {
                 && constraint.firstItem === view
                 && constraint.firstAttribute == attribute
         })
+    }
+}
+
+@available(iOS 26.0, *)
+@MainActor
+private final class RecordingBottomAccessoryTabBarController: UITabBarController {
+    struct Call {
+        let accessory: UITabAccessory?
+        let animated: Bool
+    }
+
+    private(set) var setBottomAccessoryCalls: [Call] = []
+
+    override func setBottomAccessory(
+        _ bottomAccessory: UITabAccessory?,
+        animated: Bool
+    ) {
+        setBottomAccessoryCalls.append(Call(
+            accessory: bottomAccessory,
+            animated: animated
+        ))
+        super.setBottomAccessory(bottomAccessory, animated: animated)
     }
 }
 

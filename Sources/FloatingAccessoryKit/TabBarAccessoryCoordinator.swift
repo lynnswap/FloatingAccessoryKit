@@ -14,8 +14,19 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
     private var contentSizeMeasurement: ContentSizeMeasurement?
     private var needsContentSizeMeasurement = true
+    private let layoutAnimator: TabBarAccessoryLayoutAnimator
 
     private(set) var isHidden = false
+
+    init(
+        isReduceMotionEnabled: @escaping @MainActor () -> Bool = {
+            UIAccessibility.isReduceMotionEnabled
+        }
+    ) {
+        layoutAnimator = TabBarAccessoryLayoutAnimator(
+            isReduceMotionEnabled: isReduceMotionEnabled
+        )
+    }
 
     func setAccessoryView(
         _ view: UIView?,
@@ -28,7 +39,8 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return
         }
 
-        let isUpdatingCurrentView = contentView === view
+        let isUpdatingInstalledAccessory = contentView === view
+            && tabBarController.bottomAccessory === tabAccessory
         if contentView !== view {
             removeAccessoryView(animated: false, from: tabBarController)
             contentView = view
@@ -40,13 +52,33 @@ final class TabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         isHidden = false
 
         if let tabAccessory {
-            if isUpdatingCurrentView,
-               tabBarController.bottomAccessory === tabAccessory {
-                update(in: tabBarController)
+            if isUpdatingInstalledAccessory {
+                updateInstalledAccessory(
+                    tabAccessory,
+                    animated: animated,
+                    in: tabBarController
+                )
             } else {
                 tabBarController.setBottomAccessory(tabAccessory, animated: animated)
                 update(in: tabBarController)
             }
+        }
+    }
+
+    private func updateInstalledAccessory(
+        _ tabAccessory: UITabAccessory,
+        animated: Bool,
+        in tabBarController: UITabBarController
+    ) {
+        layoutAnimator.perform(
+            animated: animated,
+            in: tabBarController
+        ) { shouldAnimate in
+            tabBarController.setBottomAccessory(
+                tabAccessory,
+                animated: shouldAnimate
+            )
+            self.update(in: tabBarController)
         }
     }
 
