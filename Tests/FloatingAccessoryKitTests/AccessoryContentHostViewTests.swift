@@ -73,4 +73,57 @@ struct AccessoryContentHostViewTests {
         #expect(weakContentHostView == nil)
         #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
     }
+
+    @Test func detachingReparentedContentRestoresConsumerAutoresizing() {
+        let contentView = UIView()
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+        let contentHostView = AccessoryContentHostView(
+            contentView: contentView,
+            preferredSizeDidChange: { _ in }
+        )
+        let newOwner = UIView()
+        newOwner.addSubview(contentView)
+
+        contentHostView.detachContent(keepingSnapshot: false)
+
+        #expect(contentView.superview === newOwner)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+    }
+
+    @Test func deinitializationRestoresReparentedConsumerAutoresizing() {
+        let contentView = UIView()
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+        let newOwner = UIView()
+        weak var weakContentHostView: AccessoryContentHostView?
+
+        do {
+            let contentHostView = AccessoryContentHostView(
+                contentView: contentView,
+                preferredSizeDidChange: { _ in }
+            )
+            weakContentHostView = contentHostView
+            newOwner.addSubview(contentView)
+        }
+
+        #expect(weakContentHostView == nil)
+        #expect(contentView.superview === newOwner)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+    }
+
+    @Test func detachingReparentedContentPreservesNewOwnerAutoresizingChange() {
+        let contentView = UIView()
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        let contentHostView = AccessoryContentHostView(
+            contentView: contentView,
+            preferredSizeDidChange: { _ in }
+        )
+        let newOwner = UIView()
+        newOwner.addSubview(contentView)
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+
+        contentHostView.detachContent(keepingSnapshot: false)
+
+        #expect(contentView.superview === newOwner)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+    }
 }

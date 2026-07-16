@@ -30,19 +30,16 @@ final class AccessoryContentHostView: UIView {
         let contentConstraints = contentConstraints
         let originalTranslatesAutoresizingMaskIntoConstraints =
             originalTranslatesAutoresizingMaskIntoConstraints
-        let owner: UIView = self
 
         // `isolated deinit` requires iOS 18.4. This package supports iOS 18.0,
         // so assert the type's MainActor confinement for the synchronous
         // UIKit cleanup backstop.
         MainActor.assumeIsolated {
             NSLayoutConstraint.deactivate(contentConstraints)
-            if contentView?.superview === owner,
-               let contentView,
-               let originalTranslatesAutoresizingMaskIntoConstraints {
-                contentView.translatesAutoresizingMaskIntoConstraints =
-                    originalTranslatesAutoresizingMaskIntoConstraints
-            }
+            Self.restoreConsumerAutoresizingIfUnchanged(
+                contentView,
+                originalValue: originalTranslatesAutoresizingMaskIntoConstraints
+            )
         }
     }
 
@@ -83,10 +80,10 @@ final class AccessoryContentHostView: UIView {
         if isStillOwned {
             contentView.removeFromSuperview()
         }
-        if isStillOwned,
-           let originalTranslatesAutoresizingMaskIntoConstraints {
-            contentView.translatesAutoresizingMaskIntoConstraints = originalTranslatesAutoresizingMaskIntoConstraints
-        }
+        Self.restoreConsumerAutoresizingIfUnchanged(
+            contentView,
+            originalValue: originalTranslatesAutoresizingMaskIntoConstraints
+        )
 
         self.contentView = nil
         self.originalTranslatesAutoresizingMaskIntoConstraints = nil
@@ -117,6 +114,19 @@ final class AccessoryContentHostView: UIView {
             height
         ]
         NSLayoutConstraint.activate(contentConstraints)
+    }
+
+    private static func restoreConsumerAutoresizingIfUnchanged(
+        _ contentView: UIView?,
+        originalValue: Bool?
+    ) {
+        guard let contentView,
+              let originalValue,
+              contentView.translatesAutoresizingMaskIntoConstraints == false else {
+            return
+        }
+
+        contentView.translatesAutoresizingMaskIntoConstraints = originalValue
     }
 
     private func measuredFittingSize(for contentView: UIView) -> CGSize {
