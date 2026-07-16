@@ -33,8 +33,19 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
     private var managedSafeAreaAdjustment: ManagedSafeAreaAdjustment?
     private var transitionGeneration = 0
+    private let layoutAnimator: TabBarAccessoryLayoutAnimator
 
     private(set) var isHidden = false
+
+    init(
+        isReduceMotionEnabled: @escaping @MainActor () -> Bool = {
+            UIAccessibility.isReduceMotionEnabled
+        }
+    ) {
+        layoutAnimator = TabBarAccessoryLayoutAnimator(
+            isReduceMotionEnabled: isReduceMotionEnabled
+        )
+    }
 
     func setAccessoryView(
         _ view: UIView?,
@@ -47,6 +58,10 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
             return
         }
 
+        let isUpdatingVisibleAccessory = contentView === view
+            && !isHidden
+            && hostView?.isHidden == false
+            && hostView?.superview === tabBarController.view
         if contentView !== view {
             removeAccessoryView(animated: false, from: tabBarController)
             contentView = view
@@ -57,8 +72,17 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         self.position = position
         isHidden = false
         bindContentViewIfNeeded(view, in: tabBarController)
-        update(in: tabBarController)
-        showHostView(animated: animated, in: tabBarController)
+        if isUpdatingVisibleAccessory {
+            layoutAnimator.perform(
+                animated: animated,
+                in: tabBarController
+            ) { _ in
+                self.update(in: tabBarController)
+            }
+        } else {
+            update(in: tabBarController)
+            showHostView(animated: animated, in: tabBarController)
+        }
     }
 
     func setHidden(_ hidden: Bool, animated: Bool, in tabBarController: UITabBarController) {
@@ -308,23 +332,14 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         )
         let targetHeight = tabBarButtonHeight(in: tabBarController.tabBar)
             ?? fallbackHeight
-        let idealSize = view.sizeThatFits(
-            CGSize(width: UIView.layoutFittingExpandedSize.width, height: targetHeight)
+        let fittedWidth = TabBarAccessoryContentMeasurement.width(
+            for: view,
+            proposedHeight: targetHeight,
+            policy: .intrinsicAspect
         )
-        let fittingSize = view.systemLayoutSizeFitting(
-            CGSize(width: UIView.layoutFittingCompressedSize.width, height: targetHeight),
-            withHorizontalFittingPriority: .fittingSizeLevel,
-            verticalFittingPriority: .required
-        )
-        let intrinsicSize = view.intrinsicContentSize
-
-        let width = preferredWidth(forHeight: targetHeight, fittingSize: idealSize)
-            ?? preferredWidth(forHeight: targetHeight, fittingSize: fittingSize)
-            ?? preferredWidth(forHeight: targetHeight, fittingSize: intrinsicSize)
-            ?? targetHeight
 
         return CGSize(
-            width: min(max(width, targetHeight), maximumWidth(in: tabBarController)),
+            width: min(max(fittedWidth, targetHeight), maximumWidth(in: tabBarController)),
             height: targetHeight
         )
     }
@@ -528,19 +543,6 @@ final class OverlayTabBarAccessoryCoordinator: TabBarAccessoryCoordinating {
         }
 
         return value
-    }
-
-    private func preferredWidth(forHeight height: CGFloat, fittingSize: CGSize) -> CGFloat? {
-        if fittingSize.width.isFinite, fittingSize.width > 0,
-           fittingSize.height.isFinite, fittingSize.height > 0 {
-            return height * fittingSize.width / fittingSize.height
-        }
-
-        if fittingSize.width.isFinite, fittingSize.width > 0 {
-            return fittingSize.width
-        }
-
-        return nil
     }
 
     private func showHostView(animated: Bool, in tabBarController: UITabBarController) {

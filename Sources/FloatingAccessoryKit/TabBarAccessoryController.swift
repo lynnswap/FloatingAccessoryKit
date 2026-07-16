@@ -51,14 +51,25 @@ public final class TabBarAccessoryController {
 
     /// Installs, replaces, moves, or removes the accessory content view.
     ///
-    /// Calling this method with the same view updates its position without
-    /// recreating the view. Passing `nil` removes the current accessory.
+    /// After changing content in a way that affects its preferred size, call
+    /// this method again with the same view. The controller remeasures it and
+    /// updates its position without replacing the installed accessory. Passing
+    /// `true` for `animated` asks the container to animate that in-place update;
+    /// passing `nil` removes the current accessory. On iOS 26+, the native
+    /// accessory height is proposed to the content view and its fitting width
+    /// determines the platter width, with near-square content snapped to an
+    /// exact square. In-place geometry updates honor Reduce Motion on every
+    /// supported OS version.
+    /// The controller owns the installed view's width and height. Express its
+    /// natural size with intrinsic sizing and content-hugging and compression-
+    /// resistance priorities; active required constant width or height
+    /// constraints violate this contract.
     ///
     /// - Parameters:
     ///   - view: The view to display as the accessory, or `nil` to remove the
-    ///     current accessory. The view should provide an intrinsic content size
-    ///     or explicit sizing constraints. Treat this view as foreground
-    ///     content and do not add your own capsule or material background;
+    ///     current accessory. The view should provide an intrinsic content size.
+    ///     Treat this view as foreground content and do not add your own capsule
+    ///     or material background;
     ///     FloatingAccessoryKit uses the native `UITabAccessory` presentation on
     ///     iOS 26+ without adding another background, and adds a matching
     ///     overlay background on iOS 18.

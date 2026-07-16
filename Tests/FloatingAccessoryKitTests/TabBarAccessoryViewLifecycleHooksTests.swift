@@ -48,6 +48,27 @@ struct TabBarAccessoryViewLifecycleHooksTests {
         #expect(coordinator.lastUpdatedTabBarController === tabBarController)
     }
 
+    @Test func scopedSuspensionSkipsAutomaticLayoutUpdatesAndRestoresCallbacks() {
+        let tabBarController = makeTestTabBarController()
+        let coordinator = SpyAccessoryCoordinator()
+
+        TabBarAccessoryViewLifecycleHooks.register(coordinator, for: tabBarController)
+        TabBarAccessoryViewLifecycleHooks.withAutomaticUpdatesSuspended(
+            for: tabBarController
+        ) {
+            TabBarAccessoryViewLifecycleHooks.withAutomaticUpdatesSuspended(
+                for: tabBarController
+            ) {
+                tabBarController.viewDidLayoutSubviews()
+            }
+            tabBarController.viewDidLayoutSubviews()
+        }
+
+        #expect(coordinator.updateCallCount == 0)
+        tabBarController.viewDidLayoutSubviews()
+        #expect(coordinator.updateCallCount == 1)
+    }
+
     @Test func setTabBarHiddenNotifiesVisibilityChange() {
         let tabBarController = makeTestTabBarController()
         let coordinator = SpyAccessoryCoordinator()
