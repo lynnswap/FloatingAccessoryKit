@@ -18,12 +18,20 @@ struct TabBarAccessoryLayoutAnimator {
         updates: @escaping (_ animated: Bool) -> Void
     ) {
         let layoutView = tabBarController.view!
+        let reduceMotionEnabled = isReduceMotionEnabled()
         let shouldAnimate = animated
             && UIView.areAnimationsEnabled
-            && !isReduceMotionEnabled()
+            && !reduceMotionEnabled
         guard shouldAnimate else {
-            updates(false)
-            layoutView.layoutIfNeeded()
+            let applyUpdates = {
+                updates(false)
+                layoutView.layoutIfNeeded()
+            }
+            if animated && reduceMotionEnabled {
+                UIView.performWithoutAnimation(applyUpdates)
+            } else {
+                applyUpdates()
+            }
             return
         }
 

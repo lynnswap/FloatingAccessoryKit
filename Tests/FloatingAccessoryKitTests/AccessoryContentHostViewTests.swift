@@ -9,7 +9,7 @@ struct AccessoryContentHostViewTests {
         let contentView = FixedSizeView(size: CGSize(width: 84, height: 42))
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
-            preferredSizeDidChange: {}
+            preferredSizeDidChange: { _ in }
         )
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
 
@@ -26,7 +26,7 @@ struct AccessoryContentHostViewTests {
         ])
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
-            preferredSizeDidChange: {}
+            preferredSizeDidChange: { _ in }
         )
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
 
@@ -34,6 +34,26 @@ struct AccessoryContentHostViewTests {
 
         #expect(contentView.bounds.size == CGSize(width: 84, height: 42))
         #expect(contentView.center == CGPoint(x: 48, y: 24))
+    }
+
+    @Test func preferredSizeChangesAnimateAfterInitialMeasurement() {
+        let contentView = MutableSizeView(
+            size: CGSize(width: 84, height: 42)
+        )
+        var animationRequests: [Bool] = []
+        let contentHostView = AccessoryContentHostView(
+            contentView: contentView
+        ) { animated in
+            animationRequests.append(animated)
+        }
+        contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
+
+        contentHostView.layoutIfNeeded()
+        contentView.size = CGSize(width: 126, height: 42)
+        contentHostView.setNeedsLayout()
+        contentHostView.layoutIfNeeded()
+
+        #expect(animationRequests == [false, true])
     }
 
     @Test func deinitializationRestoresConsumerAutoresizing() {
@@ -44,7 +64,7 @@ struct AccessoryContentHostViewTests {
         do {
             let contentHostView = AccessoryContentHostView(
                 contentView: contentView,
-                preferredSizeDidChange: {}
+                preferredSizeDidChange: { _ in }
             )
             weakContentHostView = contentHostView
             #expect(contentView.translatesAutoresizingMaskIntoConstraints == false)

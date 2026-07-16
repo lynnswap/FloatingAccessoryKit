@@ -300,10 +300,11 @@ final class AccessoryRendererHarness {
 
 @MainActor
 final class SpyAccessoryRenderer: TabBarAccessoryRendering {
-    var contentSizeInvalidationHandler: (@MainActor () -> Void)?
+    var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
 
     private(set) var renderCallCount = 0
     private(set) var updateCallCount = 0
+    private(set) var updateAnimationDurations: [TimeInterval] = []
     private(set) var lastState = TabBarAccessoryState()
 
     func render(
@@ -322,6 +323,7 @@ final class SpyAccessoryRenderer: TabBarAccessoryRendering {
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {
         updateCallCount += 1
+        updateAnimationDurations.append(UIView.inheritedAnimationDuration)
         lastState = state
         return .applied
     }

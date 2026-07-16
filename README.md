@@ -91,6 +91,6 @@ These notes apply when upgrading from `v0.2.x` or earlier to `v0.3.0`.
   ```
 
 - `position` and `isHidden` now remain unchanged when content is removed. Installing content without a `position` also preserves the current position.
-- Content-size changes are observed automatically. Do not resubmit the same view just to trigger measurement.
+- Content-size changes are observed automatically. After initial measurement, size changes animate with UIKit timing and respect Reduce Motion. Do not resubmit the same view just to trigger measurement.
 - `removeContent(animated:)` detaches the consumer view before returning. Any remaining removal animation uses a snapshot.
 - On iOS 18, replace direct calls to `UITabBarController.setTabBarHidden(_:animated:)` with `floatingAccessoryController.setTabBarHidden(_:animated:)` so the overlay is updated in the same operation.

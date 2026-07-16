@@ -5,6 +5,45 @@ import UIKit
 @MainActor
 @Suite
 struct TabBarAccessoryControllerTests {
+    @Test func preferredSizeInvalidationPreservesAnimationIntent() {
+        let tabBarController = makeTestTabBarController()
+        let renderer = SpyAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+        controller.setContentView(
+            FixedSizeView(size: CGSize(width: 44, height: 44))
+        )
+
+        renderer.contentSizeInvalidationHandler?(false)
+        renderer.contentSizeInvalidationHandler?(true)
+
+        #expect(renderer.updateCallCount == 2)
+        #expect(renderer.updateAnimationDurations[0] == 0)
+        #expect(renderer.updateAnimationDurations[1] > 0)
+    }
+
+    @Test func preferredSizeInvalidationRespectsReduceMotion() {
+        let tabBarController = makeTestTabBarController()
+        let renderer = SpyAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer,
+            isReduceMotionEnabled: { true }
+        )
+        controller.setContentView(
+            FixedSizeView(size: CGSize(width: 44, height: 44))
+        )
+
+        UIView.animate(withDuration: 1) {
+            renderer.contentSizeInvalidationHandler?(true)
+        }
+
+        #expect(renderer.updateCallCount == 1)
+        #expect(renderer.updateAnimationDurations == [0])
+    }
+
     @Test func stateOnlyPreconfigurationDoesNotRender() {
         let tabBarController = UITabBarController()
         let renderer = SpyAccessoryRenderer()

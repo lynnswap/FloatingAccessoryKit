@@ -44,14 +44,20 @@ public final class TabBarAccessoryController {
     private var state = TabBarAccessoryState()
     private let renderer: any TabBarAccessoryRendering
     private var hostObservation: TabBarAccessoryHostObservation?
-    private let layoutAnimator = TabBarAccessoryLayoutAnimator()
+    private let layoutAnimator: TabBarAccessoryLayoutAnimator
     private var isRendering = false
 
     init(
         tabBarController: UITabBarController,
-        renderer: (any TabBarAccessoryRendering)? = nil
+        renderer: (any TabBarAccessoryRendering)? = nil,
+        isReduceMotionEnabled: @escaping @MainActor () -> Bool = {
+            UIAccessibility.isReduceMotionEnabled
+        }
     ) {
         self.tabBarController = tabBarController
+        layoutAnimator = TabBarAccessoryLayoutAnimator(
+            isReduceMotionEnabled: isReduceMotionEnabled
+        )
 
         if let renderer {
             self.renderer = renderer
@@ -61,8 +67,8 @@ public final class TabBarAccessoryController {
             self.renderer = OverlayTabBarAccessoryRenderer()
         }
 
-        self.renderer.contentSizeInvalidationHandler = { [weak self] in
-            self?.updateLayout()
+        self.renderer.contentSizeInvalidationHandler = { [weak self] animated in
+            self?.updateLayout(animated: animated)
         }
     }
 
@@ -97,7 +103,9 @@ public final class TabBarAccessoryController {
     ///
     /// The content must produce a fitting size through its intrinsic content
     /// size, internal Auto Layout constraints, or nonzero bounds. Changes to
-    /// intrinsic or Auto Layout sizing are observed automatically.
+    /// intrinsic or Auto Layout sizing are observed automatically. Preferred-
+    /// size changes after initial measurement animate with UIKit timing and
+    /// respect Reduce Motion.
     ///
     /// Treat this view as foreground content and do not add your own capsule or
     /// material background. FloatingAccessoryKit uses the native
@@ -238,14 +246,27 @@ public final class TabBarAccessoryController {
         synchronizeHostObservation(in: tabBarController)
     }
 
-    private func updateLayout() {
+    private func updateLayout(animated: Bool = false) {
         guard !isRendering,
               let tabBarController else {
             return
         }
 
         isRendering = true
-        let result = renderer.update(state, in: tabBarController)
+        var result = TabBarAccessoryRenderResult.applied
+        if animated {
+            layoutAnimator.perform(
+                animated: true,
+                in: tabBarController
+            ) { _ in
+                result = self.renderer.update(
+                    self.state,
+                    in: tabBarController
+                )
+            }
+        } else {
+            result = renderer.update(state, in: tabBarController)
+        }
         isRendering = false
 
         handle(result)

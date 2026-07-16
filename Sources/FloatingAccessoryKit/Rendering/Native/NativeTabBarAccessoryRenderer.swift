@@ -3,7 +3,7 @@ import UIKit
 @MainActor
 @available(iOS 26.0, *)
 final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
-    var contentSizeInvalidationHandler: (@MainActor () -> Void)?
+    var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
 
     private var tabAccessory: UITabAccessory?
     private var contentHostView: AccessoryContentHostView?
@@ -179,8 +179,8 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
     ) {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView
-        ) { [weak self] in
-            self?.contentSizeInvalidationHandler?()
+        ) { [weak self] animated in
+            self?.contentSizeInvalidationHandler?(animated)
         }
         self.contentHostView = contentHostView
         tabAccessory = UITabAccessory(contentView: contentHostView)
@@ -272,7 +272,7 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
                 container: container,
                 contentHostView: contentHostView
             ) { [weak self] in
-                self?.contentSizeInvalidationHandler?()
+                self?.contentSizeInvalidationHandler?(false)
             }
 
             let maximumWidth = NativeAccessoryContainerLayout.availableWidth(

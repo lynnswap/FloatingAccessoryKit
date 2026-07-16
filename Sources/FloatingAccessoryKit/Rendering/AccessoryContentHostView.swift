@@ -5,12 +5,12 @@ final class AccessoryContentHostView: UIView {
     private(set) var contentView: UIView?
     private var contentConstraints: [NSLayoutConstraint] = []
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
-    private let preferredSizeDidChange: @MainActor () -> Void
+    private let preferredSizeDidChange: @MainActor (_ animated: Bool) -> Void
     private var lastObservedFittingSize: CGSize?
 
     init(
         contentView: UIView,
-        preferredSizeDidChange: @escaping @MainActor () -> Void
+        preferredSizeDidChange: @escaping @MainActor (_ animated: Bool) -> Void
     ) {
         self.preferredSizeDidChange = preferredSizeDidChange
 
@@ -58,8 +58,9 @@ final class AccessoryContentHostView: UIView {
             return
         }
 
+        let animated = lastObservedFittingSize != nil
         lastObservedFittingSize = fittingSize
-        preferredSizeDidChange()
+        preferredSizeDidChange(animated)
     }
 
     @discardableResult
