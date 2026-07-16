@@ -234,6 +234,51 @@ struct NativeTabBarAccessoryRendererTests {
         #expect(contentView.superview == nil)
     }
 
+    @Test func installingHiddenContentPreservesForeignBottomAccessory() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let controller = tabBarController.floatingAccessoryController
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+        let foreignAccessory = UITabAccessory(contentView: UIView())
+        tabBarController.setBottomAccessory(foreignAccessory, animated: false)
+
+        controller.setHidden(true)
+        controller.setContentView(contentView)
+        controller.setPosition(.center)
+
+        #expect(tabBarController.bottomAccessory === foreignAccessory)
+        #expect(controller.contentView === contentView)
+        #expect(contentView.superview is AccessoryContentHostView)
+    }
+
+    @Test func updatingHiddenContentPreservesForeignBottomAccessory() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let renderer = AccessoryRendererHarness(renderer: NativeTabBarAccessoryRenderer())
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+        let foreignAccessory = UITabAccessory(contentView: UIView())
+        renderer.setHidden(true, animated: false, in: tabBarController)
+        renderer.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.setBottomAccessory(foreignAccessory, animated: false)
+
+        let result = renderer.update(in: tabBarController)
+
+        #expect(result == .applied)
+        #expect(tabBarController.bottomAccessory === foreignAccessory)
+        #expect(contentView.superview is AccessoryContentHostView)
+    }
+
     @Test func externalReparentingRelinquishesNativePresentationWithoutTouchingNewOwner() {
         guard #available(iOS 26.0, *) else {
             return

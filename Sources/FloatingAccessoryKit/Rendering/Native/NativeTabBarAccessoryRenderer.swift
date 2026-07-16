@@ -60,6 +60,13 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
             )
         }
 
+        if state.isHidden {
+            if tabBarController.bottomAccessory === tabAccessory {
+                tabBarController.setBottomAccessory(nil, animated: animated)
+            }
+            return .applied
+        }
+
         if let installedAccessory = tabBarController.bottomAccessory,
            installedAccessory !== tabAccessory {
             return loseOwnership(
@@ -67,13 +74,6 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
                 message: "UIKit bottomAccessory was replaced while FloatingAccessoryKit content was installed; the package content was detached without modifying the replacement.",
                 in: tabBarController
             )
-        }
-
-        if state.isHidden {
-            if tabBarController.bottomAccessory === tabAccessory {
-                tabBarController.setBottomAccessory(nil, animated: animated)
-            }
-            return .applied
         }
 
         let needsInstallation = tabBarController.bottomAccessory !== tabAccessory
@@ -122,15 +122,6 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
             )
         }
 
-        if let installedAccessory = tabBarController.bottomAccessory,
-           installedAccessory !== tabAccessory {
-            return loseOwnership(
-                id: "native-bottom-accessory-ownership-lost",
-                message: "UIKit bottomAccessory was replaced while FloatingAccessoryKit content was installed; the package content was detached without modifying the replacement.",
-                in: tabBarController
-            )
-        }
-
         guard contentView.superview === contentHostView else {
             return loseOwnership(
                 id: "native-content-ownership-lost",
@@ -141,6 +132,15 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
 
         guard !state.isHidden else {
             return .applied
+        }
+
+        if let installedAccessory = tabBarController.bottomAccessory,
+           installedAccessory !== tabAccessory {
+            return loseOwnership(
+                id: "native-bottom-accessory-ownership-lost",
+                message: "UIKit bottomAccessory was replaced while FloatingAccessoryKit content was installed; the package content was detached without modifying the replacement.",
+                in: tabBarController
+            )
         }
 
         guard tabBarController.bottomAccessory === tabAccessory else {

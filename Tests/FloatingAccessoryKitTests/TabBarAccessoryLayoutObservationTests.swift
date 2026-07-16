@@ -5,6 +5,27 @@ import UIKit
 @MainActor
 @Suite
 struct TabBarAccessoryLayoutObservationTests {
+    @Test func installingObservationOnVisibleHostCreatesOneObservationView() {
+        let tabBarController = makeTestTabBarController()
+        let window = UIWindow(frame: tabBarController.view.bounds)
+        window.rootViewController = tabBarController
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let renderer = SpyAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+
+        controller.setContentView(UIView())
+
+        let observationViews = tabBarController.view.subviews.compactMap {
+            $0 as? TabBarAccessoryLayoutObservationView
+        }
+        #expect(observationViews.count == 1)
+        #expect(renderer.updateCallCount == 0)
+    }
+
     @Test func tabBarAppearanceChangeUpdatesInstalledOverlayBackground() throws {
         guard #unavailable(iOS 26.0) else {
             return

@@ -29,6 +29,7 @@ final class TabBarAccessoryHostObservation {
         if observesOverlayInputs {
             installOverlayInputObservations(in: tabBarController)
         }
+        layoutObservationView?.startObservingChanges()
     }
 
     private func installRootGeometryObservation(

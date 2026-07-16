@@ -3,6 +3,7 @@ import UIKit
 @MainActor
 final class TabBarAccessoryLayoutObservationView: UIView {
     private let onLayout: @MainActor () -> Void
+    private var isObservingChanges = false
     private var lastObservedLayout: ObservedLayout?
 
     init(onLayout: @escaping @MainActor () -> Void) {
@@ -18,6 +19,10 @@ final class TabBarAccessoryLayoutObservationView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func startObservingChanges() {
+        isObservingChanges = true
     }
 
     override func layoutSubviews() {
@@ -47,6 +52,9 @@ final class TabBarAccessoryLayoutObservationView: UIView {
         }
 
         lastObservedLayout = observedLayout
+        guard isObservingChanges else {
+            return
+        }
         onLayout()
     }
 
