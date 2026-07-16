@@ -237,16 +237,17 @@ final class TestLongPressGestureRecognizer: UILongPressGestureRecognizer {
 }
 
 @MainActor
-final class SpyAccessoryCoordinator: TabBarAccessoryCoordinating {
-    var isHidden = false
-    var setAccessoryViewCallCount = 0
-    var setHiddenCallCount = 0
-    var updateCallCount = 0
-    var visibilityChangeCallCount = 0
-    weak var lastUpdatedTabBarController: UITabBarController?
-    weak var lastVisibilityTabBarController: UITabBarController?
-    var lastVisibilityHidden: Bool?
-    var lastVisibilityAnimated: Bool?
+final class AccessoryRendererHarness {
+    private let renderer: any TabBarAccessoryRendering
+    private(set) var state = TabBarAccessoryState()
+
+    init(renderer: any TabBarAccessoryRendering) {
+        self.renderer = renderer
+    }
+
+    var isHidden: Bool {
+        state.isHidden
+    }
 
     func setAccessoryView(
         _ view: UIView?,
@@ -254,17 +255,37 @@ final class SpyAccessoryCoordinator: TabBarAccessoryCoordinating {
         animated: Bool,
         in tabBarController: UITabBarController
     ) {
-        setAccessoryViewCallCount += 1
+        let previousState = state
+        state.contentView = view
+        state.position = position
+        _ = renderer.render(
+            from: previousState,
+            to: state,
+            animated: animated,
+            in: tabBarController
+        )
     }
 
-    func setHidden(_ hidden: Bool, animated: Bool, in tabBarController: UITabBarController) {
-        isHidden = hidden
-        setHiddenCallCount += 1
+    func setHidden(
+        _ hidden: Bool,
+        animated: Bool,
+        in tabBarController: UITabBarController
+    ) {
+        let previousState = state
+        state.isHidden = hidden
+        _ = renderer.render(
+            from: previousState,
+            to: state,
+            animated: animated,
+            in: tabBarController
+        )
     }
 
-    func update(in tabBarController: UITabBarController) {
-        updateCallCount += 1
-        lastUpdatedTabBarController = tabBarController
+    @discardableResult
+    func update(
+        in tabBarController: UITabBarController
+    ) -> TabBarAccessoryRenderResult {
+        renderer.update(state, in: tabBarController)
     }
 
     func tabBarVisibilityDidChange(
@@ -272,9 +293,36 @@ final class SpyAccessoryCoordinator: TabBarAccessoryCoordinating {
         animated: Bool,
         in tabBarController: UITabBarController
     ) {
-        visibilityChangeCallCount += 1
-        lastVisibilityHidden = hidden
-        lastVisibilityAnimated = animated
-        lastVisibilityTabBarController = tabBarController
+        tabBarController.setTabBarHidden(hidden, animated: animated)
+        _ = renderer.update(state, in: tabBarController)
+    }
+}
+
+@MainActor
+final class SpyAccessoryRenderer: TabBarAccessoryRendering {
+    var contentSizeInvalidationHandler: (@MainActor () -> Void)?
+
+    private(set) var renderCallCount = 0
+    private(set) var updateCallCount = 0
+    private(set) var lastState = TabBarAccessoryState()
+
+    func render(
+        from previousState: TabBarAccessoryState,
+        to state: TabBarAccessoryState,
+        animated: Bool,
+        in tabBarController: UITabBarController
+    ) -> TabBarAccessoryRenderResult {
+        renderCallCount += 1
+        lastState = state
+        return .applied
+    }
+
+    func update(
+        _ state: TabBarAccessoryState,
+        in tabBarController: UITabBarController
+    ) -> TabBarAccessoryRenderResult {
+        updateCallCount += 1
+        lastState = state
+        return .applied
     }
 }

@@ -13,16 +13,18 @@ final class SampleTabBarController: UITabBarController {
         static let animationDuration: TimeInterval = 0.25
     }
 
-    private var accessoryConfiguration: AccessoryConfiguration
+    private var pendingAccessoryConfiguration: AccessoryConfiguration?
     private let usesUITabs: Bool
-    private var isAccessoryHidden = false
     private var requestedTabBarHidden = false
-    private lazy var accessoryController = TabBarAccessoryController(tabBarController: self)
+
+    private var accessoryController: TabBarAccessoryController {
+        floatingAccessoryController
+    }
 
     var onTabBarVisibilityChange: (@MainActor (Bool) -> Void)?
 
     private init(accessoryConfiguration: AccessoryConfiguration, usesUITabs: Bool) {
-        self.accessoryConfiguration = accessoryConfiguration
+        pendingAccessoryConfiguration = accessoryConfiguration
         self.usesUITabs = usesUITabs
 
         super.init(nibName: nil, bundle: nil)
@@ -55,25 +57,7 @@ final class SampleTabBarController: UITabBarController {
         applyAccessoryConfigurationIfNeeded()
     }
 
-    func setAccessory(
-        _ accessoryView: UIView,
-        position: TabBarAccessoryController.Position = .trailing,
-        animated: Bool = false
-    ) {
-        accessoryConfiguration = .uiView(
-            accessoryView,
-            position: position,
-            animated: animated
-        )
-        applyAccessoryConfigurationIfNeeded()
-    }
-
     func setAccessoryHidden(_ hidden: Bool, animated: Bool = false) {
-        isAccessoryHidden = hidden
-        guard isViewLoaded else {
-            return
-        }
-
         accessoryController.setHidden(hidden, animated: animated)
     }
 
@@ -86,7 +70,7 @@ final class SampleTabBarController: UITabBarController {
         onTabBarVisibilityChange?(hidden)
 
         guard animated else {
-            setTabBarHidden(hidden, animated: false)
+            accessoryController.setTabBarHidden(hidden, animated: false)
             tabBar.alpha = 1
             return
         }
@@ -107,7 +91,7 @@ final class SampleTabBarController: UITabBarController {
                 options: [.curveEaseInOut]
             ) {
                 snapshot?.alpha = 0
-                self.setTabBarHidden(true, animated: false)
+                self.accessoryController.setTabBarHidden(true, animated: false)
                 self.view.layoutIfNeeded()
             } completion: { _ in
                 snapshot?.removeFromSuperview()
@@ -121,7 +105,7 @@ final class SampleTabBarController: UITabBarController {
                 delay: 0,
                 options: [.curveEaseInOut]
             ) {
-                self.setTabBarHidden(false, animated: false)
+                self.accessoryController.setTabBarHidden(false, animated: false)
                 self.tabBar.alpha = 1
                 self.view.layoutIfNeeded()
             }
@@ -178,30 +162,35 @@ final class SampleTabBarController: UITabBarController {
     }
 
     private func applyAccessoryConfigurationIfNeeded() {
-        guard isViewLoaded else {
+        guard isViewLoaded,
+              let configuration = pendingAccessoryConfiguration else {
             return
         }
 
-        accessoryConfiguration.configure(accessoryController)
-        accessoryController.setHidden(isAccessoryHidden)
+        pendingAccessoryConfiguration = nil
+        accessoryController.setContentView(
+            configuration.view,
+            position: configuration.position,
+            animated: configuration.animated
+        )
     }
 }
 
 private struct AccessoryConfiguration {
-    let configure: @MainActor (TabBarAccessoryController) -> Void
+    let view: UIView
+    let position: TabBarAccessoryController.Position
+    let animated: Bool
 
     static func uiView(
         _ view: UIView,
         position: TabBarAccessoryController.Position,
         animated: Bool = false
     ) -> Self {
-        AccessoryConfiguration { accessoryController in
-            accessoryController.setContent(
-                view,
-                position: position,
-                animated: animated
-            )
-        }
+        AccessoryConfiguration(
+            view: view,
+            position: position,
+            animated: animated
+        )
     }
 }
 
@@ -463,9 +452,9 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
     private let accessoryView: SampleAccessoryView
     private let sampleTabBarController: SampleTabBarController
 
-    private var accessoryPosition: TabBarAccessoryController.Position
+    private let initialAccessoryPosition: TabBarAccessoryController.Position
+    private let initialAccessoryHidden: Bool
     private var isTabBarHidden: Bool
-    private var isAccessoryHidden: Bool
 
     init(
         accessoryPosition: TabBarAccessoryController.Position = .trailing,
@@ -474,9 +463,9 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         usesUITabs: Bool = false
     ) {
         let accessoryView = SampleAccessoryView()
-        self.accessoryPosition = accessoryPosition
+        initialAccessoryPosition = accessoryPosition
+        initialAccessoryHidden = isAccessoryHidden
         self.isTabBarHidden = isTabBarHidden
-        self.isAccessoryHidden = isAccessoryHidden
         self.accessoryView = accessoryView
         self.sampleTabBarController = SampleTabBarController(
             accessoryView: accessoryView,
@@ -490,9 +479,6 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         sampleTabBarController.onTabBarVisibilityChange = { [weak self] hidden in
             self?.syncTabBarVisibility(hidden)
         }
-        accessoryView.onContentSizeChange = { [weak self] in
-            self?.updateAccessorySize()
-        }
     }
 
     @available(*, unavailable)
@@ -504,11 +490,11 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         super.viewDidLoad()
 
         sampleTabBarController.setTabBarHiddenWithFade(isTabBarHidden, animated: false)
-        sampleTabBarController.setAccessoryHidden(isAccessoryHidden)
+        sampleTabBarController.setAccessoryHidden(initialAccessoryHidden)
     }
 
     private func configureNavigationItem() {
-        positionControl.selectedSegmentIndex = segmentIndex(for: accessoryPosition)
+        positionControl.selectedSegmentIndex = segmentIndex(for: initialAccessoryPosition)
         positionControl.addAction(
             UIAction { [weak self] _ in
                 self?.accessoryPositionDidChange()
@@ -525,7 +511,7 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
             for: .valueChanged
         )
 
-        accessoryVisibilitySwitch.isOn = !isAccessoryHidden
+        accessoryVisibilitySwitch.isOn = !initialAccessoryHidden
         accessoryVisibilitySwitch.accessibilityLabel = "Accessory"
         accessoryVisibilitySwitch.addAction(
             UIAction { [weak self] _ in
@@ -544,35 +530,22 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
     }
 
     private func accessoryPositionDidChange() {
-        accessoryPosition = selectedAccessoryPosition()
-        updateAccessory(animated: true)
+        sampleTabBarController.floatingAccessoryController.setPosition(
+            selectedAccessoryPosition(),
+            animated: true
+        )
     }
 
     private func accessoryVisibilityDidChange() {
-        isAccessoryHidden = !accessoryVisibilitySwitch.isOn
-        sampleTabBarController.setAccessoryHidden(isAccessoryHidden, animated: true)
+        sampleTabBarController.setAccessoryHidden(
+            !accessoryVisibilitySwitch.isOn,
+            animated: true
+        )
     }
 
     private func tabBarVisibilityDidChange() {
         isTabBarHidden = !tabBarVisibilitySwitch.isOn
         sampleTabBarController.setTabBarHiddenWithFade(isTabBarHidden, animated: true)
-    }
-
-    private func updateAccessorySize() {
-        updateAccessory(animated: true)
-    }
-
-    private func updateAccessory(animated: Bool) {
-        sampleTabBarController.setAccessory(
-            accessoryView,
-            position: accessoryPosition,
-            animated: animated
-        )
-        sampleTabBarController.setAccessoryHidden(
-            isAccessoryHidden,
-            animated: animated
-        )
-        sampleTabBarController.view.layoutIfNeeded()
     }
 
     private func selectedAccessoryPosition() -> TabBarAccessoryController.Position {
@@ -584,19 +557,18 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         case 2:
             .trailing
         default:
-            accessoryPosition
+            sampleTabBarController.floatingAccessoryController.position
         }
     }
 
     private func segmentIndex(for position: TabBarAccessoryController.Position) -> Int {
-        switch position {
-        case .leading:
-            0
-        case .center:
-            1
-        case .trailing:
-            2
+        if position == .leading {
+            return 0
         }
+        if position == .center {
+            return 1
+        }
+        return 2
     }
 
     private func syncTabBarVisibility(_ hidden: Bool) {
@@ -627,8 +599,6 @@ private final class SampleAccessoryView: UIStackView {
     private static let minimumButtonLength: CGFloat = 44
 
     private let minusButtonStack = UIStackView()
-
-    var onContentSizeChange: (@MainActor () -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -719,7 +689,6 @@ private final class SampleAccessoryView: UIStackView {
     private func notifyContentSizeDidChange() {
         minusButtonStack.invalidateIntrinsicContentSize()
         invalidateIntrinsicContentSize()
-        onContentSizeChange?()
     }
 }
 

@@ -3,7 +3,7 @@ import UIKit
 
 @MainActor
 @available(iOS 26.0, *)
-enum TabBarAccessoryContainerSizing {
+enum NativeAccessoryContainerLayout {
     private typealias HostedElementFrameIMP = @convention(c) (UIView, Selector, Int, Int) -> CGRect
 
     private static let hostedElementFrameSelector = NSSelectorFromString([":", "options", ":", "frameForHostedElement"].reversed().joined())
@@ -18,6 +18,10 @@ enum TabBarAccessoryContainerSizing {
         position: TabBarAccessoryController.Position
     ) {
         guard let host = layoutHost(containing: container) else {
+            FloatingAccessoryDiagnostics.reportOnce(
+                id: "native-layout-host-unavailable-\(NSStringFromClass(type(of: container)))",
+                "Native accessory placement is using UIKit's default layout because no compatible layout host was found for \(NSStringFromClass(type(of: container)))."
+            )
             return
         }
 
@@ -134,6 +138,10 @@ enum TabBarAccessoryContainerSizing {
         guard let method = class_getInstanceMethod(hostClass, hostedElementFrameSelector),
               let typeEncoding = method_getTypeEncoding(method),
               let originalImplementation = class_getMethodImplementation(hostClass, hostedElementFrameSelector) else {
+            FloatingAccessoryDiagnostics.reportOnce(
+                id: "native-layout-hook-unavailable-\(NSStringFromClass(hostClass))",
+                "Native accessory placement is using UIKit's default layout because the layout capability is unavailable on \(NSStringFromClass(hostClass))."
+            )
             return
         }
 
@@ -166,9 +174,24 @@ enum TabBarAccessoryContainerSizing {
         }
 
         let implementation = imp_implementationWithBlock(block)
-        if !class_addMethod(hostClass, hostedElementFrameSelector, implementation, typeEncoding),
+        let didAddMethod = class_addMethod(
+            hostClass,
+            hostedElementFrameSelector,
+            implementation,
+            typeEncoding
+        )
+        if !didAddMethod,
            let method = class_getInstanceMethod(hostClass, hostedElementFrameSelector) {
             method_setImplementation(method, implementation)
+        }
+
+        guard didAddMethod
+                || class_getMethodImplementation(hostClass, hostedElementFrameSelector) == implementation else {
+            FloatingAccessoryDiagnostics.reportOnce(
+                id: "native-layout-hook-installation-failed-\(NSStringFromClass(hostClass))",
+                "Native accessory placement is using UIKit's default layout because its layout capability could not be installed on \(NSStringFromClass(hostClass))."
+            )
+            return
         }
 
         installedHostClassStates[classID] = HostClassState(
@@ -299,13 +322,16 @@ enum TabBarAccessoryContainerSizing {
         var adjustedFrame = frame
         adjustedFrame.size.width = width
 
-        switch state.resolvedPosition {
-        case .leading:
-            break
-        case .center:
-            adjustedFrame.origin.x = centerX(for: frame, state: state) - width / 2
-        case .trailing:
-            adjustedFrame.origin.x = frame.maxX - width
+        let leadingOrigin = frame.minX
+        let centerOrigin = centerX(for: frame, state: state) - width / 2
+        let trailingOrigin = frame.maxX - width
+        let alignment = state.resolvedHorizontalAlignment
+        if alignment <= 0.5 {
+            adjustedFrame.origin.x = leadingOrigin
+                + (centerOrigin - leadingOrigin) * alignment * 2
+        } else {
+            adjustedFrame.origin.x = centerOrigin
+                + (trailingOrigin - centerOrigin) * (alignment - 0.5) * 2
         }
 
         return adjustedFrame
@@ -351,13 +377,8 @@ enum TabBarAccessoryContainerSizing {
         var position: TabBarAccessoryController.Position = .trailing
         var layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight
         var accessoryElement: Int?
-        var resolvedPosition: TabBarAccessoryController.Position {
-            guard position != .center,
-                  layoutDirection == .rightToLeft else {
-                return position
-            }
-
-            return position == .leading ? .trailing : .leading
+        var resolvedHorizontalAlignment: CGFloat {
+            position.resolvedHorizontalAlignment(for: layoutDirection)
         }
 
         func matches(element: Int, fallbackElement: Int) -> Bool {
