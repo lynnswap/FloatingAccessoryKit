@@ -328,3 +328,35 @@ final class SpyAccessoryRenderer: TabBarAccessoryRendering {
         return .applied
     }
 }
+
+@MainActor
+final class ReentrantAccessoryRenderer: TabBarAccessoryRendering {
+    var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
+    var nextRenderResult = TabBarAccessoryRenderResult.applied
+    var onNextRender: (@MainActor () -> Void)?
+    private(set) var renderedStates: [TabBarAccessoryState] = []
+    private(set) var renderAnimations: [Bool] = []
+
+    func render(
+        from previousState: TabBarAccessoryState,
+        to state: TabBarAccessoryState,
+        animated: Bool,
+        in tabBarController: UITabBarController
+    ) -> TabBarAccessoryRenderResult {
+        renderedStates.append(state)
+        renderAnimations.append(animated)
+        let onRender = onNextRender
+        onNextRender = nil
+        onRender?()
+        let result = nextRenderResult
+        nextRenderResult = .applied
+        return result
+    }
+
+    func update(
+        _ state: TabBarAccessoryState,
+        in tabBarController: UITabBarController
+    ) -> TabBarAccessoryRenderResult {
+        .applied
+    }
+}

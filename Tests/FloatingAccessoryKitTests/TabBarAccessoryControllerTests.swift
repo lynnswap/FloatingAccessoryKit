@@ -5,6 +5,49 @@ import UIKit
 @MainActor
 @Suite
 struct TabBarAccessoryControllerTests {
+    @Test func reentrantStateChangeIsRenderedAfterActiveRender() {
+        let tabBarController = makeTestTabBarController()
+        let renderer = ReentrantAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+        renderer.onNextRender = {
+            controller.setPosition(.center, animated: true)
+        }
+
+        controller.setContentView(
+            FixedSizeView(size: CGSize(width: 44, height: 44)),
+            position: .trailing
+        )
+
+        #expect(renderer.renderedStates.count == 2)
+        #expect(renderer.renderedStates.last?.position == .center)
+        #expect(renderer.renderAnimations == [false, true])
+        #expect(controller.position == .center)
+    }
+
+    @Test func ownershipLossDoesNotDiscardReentrantReplacement() {
+        let tabBarController = makeTestTabBarController()
+        let renderer = ReentrantAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+        let firstView = FixedSizeView(size: CGSize(width: 44, height: 44))
+        let replacementView = FixedSizeView(size: CGSize(width: 88, height: 44))
+        renderer.nextRenderResult = .ownershipLost
+        renderer.onNextRender = {
+            controller.setContentView(replacementView)
+        }
+
+        controller.setContentView(firstView)
+
+        #expect(renderer.renderedStates.count == 2)
+        #expect(renderer.renderedStates.last?.contentView === replacementView)
+        #expect(controller.contentView === replacementView)
+    }
+
     @Test func preferredSizeInvalidationPreservesAnimationIntent() {
         let tabBarController = makeTestTabBarController()
         let renderer = SpyAccessoryRenderer()

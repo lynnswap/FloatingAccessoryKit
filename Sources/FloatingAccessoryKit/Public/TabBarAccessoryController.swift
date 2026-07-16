@@ -46,6 +46,12 @@ public final class TabBarAccessoryController {
     private var hostObservation: TabBarAccessoryHostObservation?
     private let layoutAnimator: TabBarAccessoryLayoutAnimator
     private var isRendering = false
+    private var pendingRender: PendingRender?
+
+    private struct PendingRender {
+        let previousState: TabBarAccessoryState
+        var animated: Bool
+    }
 
     init(
         tabBarController: UITabBarController,
@@ -226,24 +232,20 @@ public final class TabBarAccessoryController {
     }
 
     private func render(from previousState: TabBarAccessoryState, animated: Bool) {
-        guard let tabBarController else {
+        guard tabBarController != nil else {
             return
         }
 
-        guard !isRendering else {
-            return
+        if var pendingRender {
+            pendingRender.animated = pendingRender.animated || animated
+            self.pendingRender = pendingRender
+        } else {
+            pendingRender = PendingRender(
+                previousState: previousState,
+                animated: animated
+            )
         }
-
-        isRendering = true
-        let result = renderer.render(
-            from: previousState,
-            to: state,
-            animated: animated,
-            in: tabBarController
-        )
-        isRendering = false
-        handle(result)
-        synchronizeHostObservation(in: tabBarController)
+        drainPendingRendering()
     }
 
     private func updateLayout(animated: Bool = false) {
@@ -253,6 +255,7 @@ public final class TabBarAccessoryController {
         }
 
         isRendering = true
+        let renderedState = state
         var result = TabBarAccessoryRenderResult.applied
         if animated {
             layoutAnimator.perform(
@@ -260,21 +263,50 @@ public final class TabBarAccessoryController {
                 in: tabBarController
             ) { _ in
                 result = self.renderer.update(
-                    self.state,
+                    renderedState,
                     in: tabBarController
                 )
             }
         } else {
-            result = renderer.update(state, in: tabBarController)
+            result = renderer.update(
+                renderedState,
+                in: tabBarController
+            )
         }
         isRendering = false
+        handle(result, renderedState: renderedState)
+        drainPendingRendering()
+    }
 
-        handle(result)
+    private func drainPendingRendering() {
+        guard !isRendering,
+              let tabBarController else {
+            return
+        }
+
+        isRendering = true
+        while let render = pendingRender {
+            pendingRender = nil
+            let renderedState = state
+            let result = renderer.render(
+                from: render.previousState,
+                to: renderedState,
+                animated: render.animated,
+                in: tabBarController
+            )
+            handle(result, renderedState: renderedState)
+        }
+        isRendering = false
         synchronizeHostObservation(in: tabBarController)
     }
 
-    private func handle(_ result: TabBarAccessoryRenderResult) {
-        if result == .ownershipLost {
+    private func handle(
+        _ result: TabBarAccessoryRenderResult,
+        renderedState: TabBarAccessoryState
+    ) {
+        if result == .ownershipLost,
+           let renderedContentView = renderedState.contentView,
+           state.contentView === renderedContentView {
             state.contentView = nil
         }
     }
