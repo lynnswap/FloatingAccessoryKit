@@ -105,15 +105,15 @@ final class AccessoryContentHostView: UIView {
         contentView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(contentView)
 
-        let trailing = contentView.trailingAnchor.constraint(equalTo: trailingAnchor)
-        let bottom = contentView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        trailing.priority = .init(999)
-        bottom.priority = .init(999)
+        let width = contentView.widthAnchor.constraint(equalTo: widthAnchor)
+        let height = contentView.heightAnchor.constraint(equalTo: heightAnchor)
+        width.priority = .init(999)
+        height.priority = .init(999)
         contentConstraints = [
-            contentView.topAnchor.constraint(equalTo: topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            trailing,
-            bottom
+            contentView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            contentView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            width,
+            height
         ]
         NSLayoutConstraint.activate(contentConstraints)
     }

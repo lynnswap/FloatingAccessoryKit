@@ -610,6 +610,7 @@ private final class SampleAccessoryView: UIStackView {
         minusButtonStack.axis = .horizontal
         minusButtonStack.spacing = 0
         minusButtonStack.distribution = .fill
+        minusButtonStack.isHidden = true
         addArrangedSubview(minusButtonStack)
         addArrangedSubview(makeAddButton())
     }
@@ -666,6 +667,7 @@ private final class SampleAccessoryView: UIStackView {
         let button = makeRemoveButton()
         button.alpha = 0
         minusButtonStack.insertArrangedSubview(button, at: 0)
+        minusButtonStack.isHidden = false
         notifyContentSizeDidChange()
 
         UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseInOut]) {
@@ -683,6 +685,10 @@ private final class SampleAccessoryView: UIStackView {
             self.layoutIfNeeded()
         } completion: { _ in
             button.removeFromSuperview()
+            if self.minusButtonStack.arrangedSubviews.isEmpty {
+                self.minusButtonStack.isHidden = true
+                self.notifyContentSizeDidChange()
+            }
         }
     }
 
