@@ -48,6 +48,31 @@ struct TabBarAccessoryControllerTests {
         #expect(controller.contentView === replacementView)
     }
 
+    @Test func reentrantLayoutInvalidationIsUpdatedAfterActiveUpdate() {
+        let tabBarController = makeTestTabBarController()
+        let renderer = ReentrantAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+        controller.setContentView(
+            FixedSizeView(size: CGSize(width: 44, height: 44))
+        )
+        tabBarController.view.layoutIfNeeded()
+        let baselineUpdateCount = renderer.updatedStates.count
+        renderer.onNextUpdate = {
+            renderer.contentSizeInvalidationHandler?(true)
+        }
+
+        renderer.contentSizeInvalidationHandler?(false)
+
+        #expect(renderer.updatedStates.count == baselineUpdateCount + 2)
+        let reentrantAnimationDurations = renderer.updateAnimationDurations
+            .dropFirst(baselineUpdateCount)
+        #expect(reentrantAnimationDurations.first == 0)
+        #expect((reentrantAnimationDurations.last ?? 0) > 0)
+    }
+
     @Test func preferredSizeInvalidationPreservesAnimationIntent() {
         let tabBarController = makeTestTabBarController()
         let renderer = SpyAccessoryRenderer()
@@ -58,13 +83,17 @@ struct TabBarAccessoryControllerTests {
         controller.setContentView(
             FixedSizeView(size: CGSize(width: 44, height: 44))
         )
+        tabBarController.view.layoutIfNeeded()
+        let baselineUpdateCount = renderer.updateCallCount
 
         renderer.contentSizeInvalidationHandler?(false)
         renderer.contentSizeInvalidationHandler?(true)
 
-        #expect(renderer.updateCallCount == 2)
-        #expect(renderer.updateAnimationDurations[0] == 0)
-        #expect(renderer.updateAnimationDurations[1] > 0)
+        #expect(renderer.updateCallCount == baselineUpdateCount + 2)
+        let animationDurations = renderer.updateAnimationDurations
+            .dropFirst(baselineUpdateCount)
+        #expect(animationDurations.first == 0)
+        #expect((animationDurations.last ?? 0) > 0)
     }
 
     @Test func preferredSizeInvalidationRespectsReduceMotion() {
@@ -78,13 +107,15 @@ struct TabBarAccessoryControllerTests {
         controller.setContentView(
             FixedSizeView(size: CGSize(width: 44, height: 44))
         )
+        tabBarController.view.layoutIfNeeded()
+        let baselineUpdateCount = renderer.updateCallCount
 
         UIView.animate(withDuration: 1) {
             renderer.contentSizeInvalidationHandler?(true)
         }
 
-        #expect(renderer.updateCallCount == 1)
-        #expect(renderer.updateAnimationDurations == [0])
+        #expect(renderer.updateCallCount == baselineUpdateCount + 1)
+        #expect(renderer.updateAnimationDurations.last == 0)
     }
 
     @Test func stateOnlyPreconfigurationDoesNotRender() {

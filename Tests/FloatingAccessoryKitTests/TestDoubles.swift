@@ -334,8 +334,11 @@ final class ReentrantAccessoryRenderer: TabBarAccessoryRendering {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
     var nextRenderResult = TabBarAccessoryRenderResult.applied
     var onNextRender: (@MainActor () -> Void)?
+    var onNextUpdate: (@MainActor () -> Void)?
     private(set) var renderedStates: [TabBarAccessoryState] = []
     private(set) var renderAnimations: [Bool] = []
+    private(set) var updatedStates: [TabBarAccessoryState] = []
+    private(set) var updateAnimationDurations: [TimeInterval] = []
 
     func render(
         from previousState: TabBarAccessoryState,
@@ -357,6 +360,11 @@ final class ReentrantAccessoryRenderer: TabBarAccessoryRendering {
         _ state: TabBarAccessoryState,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {
-        .applied
+        updatedStates.append(state)
+        updateAnimationDurations.append(UIView.inheritedAnimationDuration)
+        let onUpdate = onNextUpdate
+        onNextUpdate = nil
+        onUpdate?()
+        return .applied
     }
 }
