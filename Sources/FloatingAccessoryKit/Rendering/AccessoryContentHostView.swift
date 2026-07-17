@@ -34,16 +34,19 @@ final class AccessoryContentHostView: UIView {
         let contentConstraints = contentConstraints
         let originalTranslatesAutoresizingMaskIntoConstraints =
             originalTranslatesAutoresizingMaskIntoConstraints
+        let isStillOwned = contentView?.superview === self
 
         // `isolated deinit` requires iOS 18.4. This package supports iOS 18.0,
         // so assert the type's MainActor confinement for the synchronous
         // UIKit cleanup backstop.
         MainActor.assumeIsolated {
             NSLayoutConstraint.deactivate(contentConstraints)
-            Self.restoreConsumerAutoresizingIfUnchanged(
-                contentView,
-                originalValue: originalTranslatesAutoresizingMaskIntoConstraints
-            )
+            if isStillOwned {
+                Self.restoreConsumerAutoresizingIfUnchanged(
+                    contentView,
+                    originalValue: originalTranslatesAutoresizingMaskIntoConstraints
+                )
+            }
         }
     }
 
@@ -99,11 +102,11 @@ final class AccessoryContentHostView: UIView {
         contentConstraints.removeAll()
         if isStillOwned {
             contentView.removeFromSuperview()
+            Self.restoreConsumerAutoresizingIfUnchanged(
+                contentView,
+                originalValue: originalTranslatesAutoresizingMaskIntoConstraints
+            )
         }
-        Self.restoreConsumerAutoresizingIfUnchanged(
-            contentView,
-            originalValue: originalTranslatesAutoresizingMaskIntoConstraints
-        )
 
         self.contentView = nil
         self.originalTranslatesAutoresizingMaskIntoConstraints = nil

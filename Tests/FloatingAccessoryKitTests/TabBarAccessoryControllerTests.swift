@@ -307,7 +307,7 @@ struct TabBarAccessoryControllerTests {
         controller.setPosition(.center, animated: false)
 
         #expect(contentView.superview === newOwner)
-        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == false)
         #expect(controller.contentView == nil)
         if #available(iOS 26.0, *) {
             #expect(tabBarController.bottomAccessory == nil)

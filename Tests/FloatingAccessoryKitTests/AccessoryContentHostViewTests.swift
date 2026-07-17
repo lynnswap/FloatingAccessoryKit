@@ -203,7 +203,7 @@ struct AccessoryContentHostViewTests {
         #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
     }
 
-    @Test func detachingReparentedContentRestoresConsumerAutoresizing() {
+    @Test func detachingReparentedContentLeavesAutoresizingWithNewOwner() {
         let contentView = UIView()
         contentView.translatesAutoresizingMaskIntoConstraints = true
         let contentHostView = AccessoryContentHostView(
@@ -217,10 +217,10 @@ struct AccessoryContentHostViewTests {
         contentHostView.detachContent(keepingSnapshot: false)
 
         #expect(contentView.superview === newOwner)
-        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == false)
     }
 
-    @Test func deinitializationRestoresReparentedConsumerAutoresizing() {
+    @Test func deinitializationLeavesReparentedAutoresizingWithNewOwner() {
         let contentView = UIView()
         contentView.translatesAutoresizingMaskIntoConstraints = true
         let newOwner = UIView()
@@ -238,7 +238,7 @@ struct AccessoryContentHostViewTests {
 
         #expect(weakContentHostView == nil)
         #expect(contentView.superview === newOwner)
-        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == false)
     }
 
     @Test func detachingReparentedContentPreservesNewOwnerAutoresizingChange() {
