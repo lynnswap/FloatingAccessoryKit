@@ -47,6 +47,53 @@ struct TabBarAccessoryLayoutObservationTests {
         #expect(backgroundView.backgroundColor?.isEqual(UIColor.systemPink) == true)
     }
 
+    @Test func installedStandardAppearanceMutationUpdatesOverlayBackground() throws {
+        guard #unavailable(iOS 26.0) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let controller = tabBarController.floatingAccessoryController
+        controller.setContentView(FixedSizeView(size: CGSize(width: 44, height: 44)))
+
+        tabBarController.tabBar.standardAppearance.backgroundColor = .systemPink
+        let backgroundEffect = UIBlurEffect(style: .dark)
+        tabBarController.tabBar.standardAppearance.backgroundEffect = backgroundEffect
+
+        let hostView = try #require(overlayHostViews(in: tabBarController).first)
+        let visualEffectView = try #require(
+            hostView.subviews.compactMap { $0 as? UIVisualEffectView }.first
+        )
+        let backgroundView = try #require(
+            hostView.subviews.first { !($0 is UIVisualEffectView) }
+        )
+        #expect(visualEffectView.effect?.isEqual(backgroundEffect) == true)
+        #expect(backgroundView.backgroundColor?.isEqual(UIColor.systemPink) == true)
+    }
+
+    @Test func installedScrollEdgeAppearanceMutationUpdatesOverlayBackground() throws {
+        guard #unavailable(iOS 26.0) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let standardAppearance = UITabBarAppearance()
+        standardAppearance.backgroundColor = nil
+        standardAppearance.backgroundEffect = nil
+        tabBarController.tabBar.standardAppearance = standardAppearance
+        tabBarController.tabBar.scrollEdgeAppearance = UITabBarAppearance()
+        let controller = tabBarController.floatingAccessoryController
+        controller.setContentView(FixedSizeView(size: CGSize(width: 44, height: 44)))
+
+        tabBarController.tabBar.scrollEdgeAppearance?.backgroundColor = .systemOrange
+
+        let hostView = try #require(overlayHostViews(in: tabBarController).first)
+        let backgroundView = try #require(
+            hostView.subviews.first { !($0 is UIVisualEffectView) }
+        )
+        #expect(backgroundView.backgroundColor?.isEqual(UIColor.systemOrange) == true)
+    }
+
     @Test func viewControllerReplacementTriggersOwnedLayoutUpdate() {
         guard #unavailable(iOS 26.0) else {
             return

@@ -11,6 +11,7 @@ final class TabBarAccessoryHostObservation {
     private var tabBarFrameObservation: NSKeyValueObservation?
     private var tabBarStandardAppearanceObservation: NSKeyValueObservation?
     private var tabBarScrollEdgeAppearanceObservation: NSKeyValueObservation?
+    private var tabBarAppearanceValueObservations: [NSKeyValueObservation] = []
     private var tabBarVisibilityObservation: NSKeyValueObservation?
     private var viewControllersObservation: NSKeyValueObservation?
     private var tabBarButtonObservations: [NSKeyValueObservation] = []
@@ -95,7 +96,7 @@ final class TabBarAccessoryHostObservation {
             options: [.new]
         ) { [weak self] _, _ in
             MainActor.assumeIsolated {
-                self?.onChange()
+                self?.tabBarAppearanceDidChange()
             }
         }
         tabBarScrollEdgeAppearanceObservation = tabBar.observe(
@@ -103,7 +104,7 @@ final class TabBarAccessoryHostObservation {
             options: [.new]
         ) { [weak self] _, _ in
             MainActor.assumeIsolated {
-                self?.onChange()
+                self?.tabBarAppearanceDidChange()
             }
         }
         tabBarVisibilityObservation = tabBar.observe(
@@ -122,7 +123,46 @@ final class TabBarAccessoryHostObservation {
                 self?.hostStructureDidChange()
             }
         }
+        refreshTabBarAppearanceValueObservations()
         refreshTabBarButtonObservations()
+    }
+
+    private func tabBarAppearanceDidChange() {
+        refreshTabBarAppearanceValueObservations()
+        onChange()
+    }
+
+    private func refreshTabBarAppearanceValueObservations() {
+        tabBarAppearanceValueObservations.forEach { $0.invalidate() }
+        tabBarAppearanceValueObservations.removeAll()
+
+        guard let tabBar = tabBarController?.tabBar else {
+            return
+        }
+
+        let standardAppearance = tabBar.standardAppearance
+        var appearances = [standardAppearance]
+        if let scrollEdgeAppearance = tabBar.scrollEdgeAppearance,
+           scrollEdgeAppearance !== standardAppearance {
+            appearances.append(scrollEdgeAppearance)
+        }
+
+        tabBarAppearanceValueObservations = appearances.flatMap { appearance in
+            [
+                appearance.observe(\.backgroundColor, options: [.new]) {
+                    [weak self] _, _ in
+                    MainActor.assumeIsolated {
+                        self?.onChange()
+                    }
+                },
+                appearance.observe(\.backgroundEffect, options: [.new]) {
+                    [weak self] _, _ in
+                    MainActor.assumeIsolated {
+                        self?.onChange()
+                    }
+                }
+            ]
+        }
     }
 
     private func hostStructureDidChange() {
@@ -204,6 +244,8 @@ final class TabBarAccessoryHostObservation {
         tabBarStandardAppearanceObservation = nil
         tabBarScrollEdgeAppearanceObservation?.invalidate()
         tabBarScrollEdgeAppearanceObservation = nil
+        tabBarAppearanceValueObservations.forEach { $0.invalidate() }
+        tabBarAppearanceValueObservations.removeAll()
         tabBarVisibilityObservation?.invalidate()
         tabBarVisibilityObservation = nil
         viewControllersObservation?.invalidate()
