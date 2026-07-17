@@ -155,6 +155,63 @@ struct TabBarAccessoryLayoutObservationTests {
         #expect(renderer.updateCallCount > baseline)
     }
 
+    @Test func selectedSafeAreaObservationMovesWithSelection() {
+        guard #unavailable(iOS 26.0) else {
+            return
+        }
+
+        let firstViewController = UIViewController()
+        let secondViewController = UIViewController()
+        let tabBarController = makeTestTabBarController(
+            viewControllers: [firstViewController, secondViewController]
+        )
+        let controller = tabBarController.floatingAccessoryController
+
+        controller.setContentView(UIView())
+
+        #expect(layoutObservationViewCount(in: firstViewController.view) == 1)
+        #expect(layoutObservationViewCount(in: secondViewController.view) == 0)
+
+        tabBarController.selectedViewController = secondViewController
+
+        #expect(layoutObservationViewCount(in: firstViewController.view) == 0)
+        #expect(layoutObservationViewCount(in: secondViewController.view) == 1)
+
+        controller.removeContent()
+
+        #expect(layoutObservationViewCount(in: secondViewController.view) == 0)
+    }
+
+    @Test func consumerSafeAreaWriteReappliesOverlayContribution() {
+        guard #unavailable(iOS 26.0) else {
+            return
+        }
+
+        let selectedViewController = UIViewController()
+        let tabBarController = makeTestTabBarController(
+            viewControllers: [selectedViewController]
+        )
+        let window = UIWindow(frame: tabBarController.view.bounds)
+        window.rootViewController = tabBarController
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let controller = tabBarController.floatingAccessoryController
+        controller.setContentView(
+            FixedSizeView(size: CGSize(width: 44, height: 44))
+        )
+        tabBarController.view.layoutIfNeeded()
+
+        selectedViewController.additionalSafeAreaInsets.bottom = 30
+        selectedViewController.view.layoutIfNeeded()
+        tabBarController.view.layoutIfNeeded()
+
+        #expect(selectedViewController.additionalSafeAreaInsets.bottom > 30)
+
+        controller.removeContent()
+
+        #expect(selectedViewController.additionalSafeAreaInsets.bottom == 30)
+    }
+
     @Test func hostOwnedControllerDoesNotCreateARetainCycle() async {
         weak var weakTabBarController: UITabBarController?
         weak var weakController: TabBarAccessoryController?
@@ -171,5 +228,9 @@ struct TabBarAccessoryLayoutObservationTests {
 
         #expect(weakTabBarController == nil)
         #expect(weakController == nil)
+    }
+
+    private func layoutObservationViewCount(in view: UIView) -> Int {
+        view.subviews.count { $0 is TabBarAccessoryLayoutObservationView }
     }
 }

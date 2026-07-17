@@ -6,6 +6,7 @@ final class TabBarAccessoryHostObservation {
     private let observesOverlayInputs: Bool
     private let onChange: @MainActor () -> Void
     private var layoutObservationView: TabBarAccessoryLayoutObservationView?
+    private var selectedSafeAreaObservationView: TabBarAccessoryLayoutObservationView?
     private var selectedViewControllerObservation: NSKeyValueObservation?
     private var tabBarFrameObservation: NSKeyValueObservation?
     private var tabBarStandardAppearanceObservation: NSKeyValueObservation?
@@ -28,8 +29,22 @@ final class TabBarAccessoryHostObservation {
         installSelectionObservation(in: tabBarController)
         if observesOverlayInputs {
             installOverlayInputObservations(in: tabBarController)
+            refreshSelectedSafeAreaObservation()
         }
         layoutObservationView?.startObservingChanges()
+    }
+
+    deinit {
+        let layoutObservationView = layoutObservationView
+        let selectedSafeAreaObservationView = selectedSafeAreaObservationView
+
+        // `isolated deinit` requires iOS 18.4. This package supports iOS 18.0,
+        // so assert the type's MainActor confinement for synchronous view
+        // cleanup when a selected controller outlives its tab bar controller.
+        MainActor.assumeIsolated {
+            layoutObservationView?.removeFromSuperview()
+            selectedSafeAreaObservationView?.removeFromSuperview()
+        }
     }
 
     private func installRootGeometryObservation(
@@ -39,6 +54,7 @@ final class TabBarAccessoryHostObservation {
         let observationView = TabBarAccessoryLayoutObservationView { [weak self] in
             if self?.observesOverlayInputs == true {
                 self?.refreshTabBarButtonObservations()
+                self?.refreshSelectedSafeAreaObservation()
             }
             self?.onChange()
         }
@@ -112,8 +128,32 @@ final class TabBarAccessoryHostObservation {
     private func hostStructureDidChange() {
         if observesOverlayInputs {
             refreshTabBarButtonObservations()
+            refreshSelectedSafeAreaObservation()
         }
         onChange()
+    }
+
+    private func refreshSelectedSafeAreaObservation() {
+        guard let selectedView = tabBarController?.selectedViewController?.view
+        else {
+            selectedSafeAreaObservationView?.removeFromSuperview()
+            selectedSafeAreaObservationView = nil
+            return
+        }
+
+        guard selectedSafeAreaObservationView?.superview !== selectedView else {
+            return
+        }
+
+        selectedSafeAreaObservationView?.removeFromSuperview()
+        let observationView = TabBarAccessoryLayoutObservationView { [weak self] in
+            self?.onChange()
+        }
+        observationView.frame = selectedView.bounds
+        observationView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        selectedView.insertSubview(observationView, at: 0)
+        observationView.startObservingChanges()
+        selectedSafeAreaObservationView = observationView
     }
 
     private func refreshTabBarButtonObservations() {
@@ -154,6 +194,8 @@ final class TabBarAccessoryHostObservation {
     func invalidate() {
         layoutObservationView?.removeFromSuperview()
         layoutObservationView = nil
+        selectedSafeAreaObservationView?.removeFromSuperview()
+        selectedSafeAreaObservationView = nil
         selectedViewControllerObservation?.invalidate()
         selectedViewControllerObservation = nil
         tabBarFrameObservation?.invalidate()
