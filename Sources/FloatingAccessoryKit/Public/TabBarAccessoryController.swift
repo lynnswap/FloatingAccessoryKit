@@ -109,10 +109,10 @@ public final class TabBarAccessoryController {
     /// ``isHidden``.
     ///
     /// The content must produce a fitting size through its intrinsic content
-    /// size, internal Auto Layout constraints, or nonzero bounds. Changes to
-    /// intrinsic or Auto Layout sizing are observed automatically. Preferred-
-    /// size changes after initial measurement animate with UIKit timing and
-    /// respect Reduce Motion.
+    /// size, internal Auto Layout constraints, or nonzero bounds. Layout-driven
+    /// size changes are measured automatically. After changing intrinsic size
+    /// or other fitting-size inputs that do not invalidate the host's layout,
+    /// call ``invalidateContentSize(animated:)``.
     ///
     /// Treat this view as foreground content and do not add your own capsule or
     /// material background. FloatingAccessoryKit uses the native
@@ -134,6 +134,24 @@ public final class TabBarAccessoryController {
             state.position = position
         }
         render(from: previousState, animated: animated)
+    }
+
+    /// Invalidates the installed content view's measured size.
+    ///
+    /// Call this operation after changing intrinsic size, bounds, or other
+    /// fitting-size inputs when that change does not invalidate the host's
+    /// layout. The content view remains installed, and its requested position
+    /// and visibility remain unchanged. This operation has no effect when no
+    /// content is installed.
+    ///
+    /// - Parameter animated: Pass `true` to animate the size change with UIKit
+    ///   timing. The default respects Reduce Motion.
+    public func invalidateContentSize(animated: Bool = true) {
+        guard state.contentView != nil else {
+            return
+        }
+
+        renderer.invalidateContentSize(animated: animated)
     }
 
     /// Removes the accessory content view.

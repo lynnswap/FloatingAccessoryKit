@@ -117,7 +117,7 @@ struct OverlayTabBarAccessoryRendererTests {
         #expect(abs(hostView.frame.maxX - (safeAreaFrame.maxX - 8)) <= 0.5)
     }
 
-    @Test func contentSizeChangesWithoutResubmission() throws {
+    @Test func explicitContentSizeInvalidationRemeasuresWithoutResubmission() throws {
         guard #unavailable(iOS 26.0) else {
             return
         }
@@ -128,13 +128,12 @@ struct OverlayTabBarAccessoryRendererTests {
 
         controller.setContentView(contentView)
         tabBarController.view.layoutIfNeeded()
-        let contentHost = try #require(contentView.superview as? AccessoryContentHostView)
+        _ = try #require(contentView.superview as? AccessoryContentHostView)
         let hostView = try installedHost(for: contentView)
         let initialSize = hostView.bounds.size
 
         contentView.size = CGSize(width: 132, height: 44)
-        contentHost.setNeedsLayout()
-        contentHost.layoutIfNeeded()
+        controller.invalidateContentSize(animated: false)
         tabBarController.view.layoutIfNeeded()
 
         #expect(hostView.bounds.width > initialSize.width)

@@ -56,7 +56,28 @@ struct AccessoryContentHostViewTests {
         #expect(animationRequests == [false, true])
     }
 
-    @Test func internalConstraintChangeInvalidatesPreferredSizeAutomatically() async {
+    @Test func explicitInvalidationSynchronizesAutomaticObservation() {
+        let contentView = MutableSizeView(
+            size: CGSize(width: 84, height: 42)
+        )
+        var animationRequests: [Bool] = []
+        let contentHostView = AccessoryContentHostView(
+            contentView: contentView
+        ) { animated in
+            animationRequests.append(animated)
+        }
+        contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
+
+        contentHostView.layoutIfNeeded()
+        contentView.size = CGSize(width: 126, height: 42)
+        contentHostView.invalidatePreferredSize(animated: false)
+        contentHostView.setNeedsLayout()
+        contentHostView.layoutIfNeeded()
+
+        #expect(animationRequests == [false, false])
+    }
+
+    @Test func internalConstraintChangeInvalidatesPreferredSizeDuringLayout() {
         let contentView = UIView()
         let width = contentView.widthAnchor.constraint(equalToConstant: 84)
         NSLayoutConstraint.activate([
@@ -64,15 +85,10 @@ struct AccessoryContentHostViewTests {
             contentView.heightAnchor.constraint(equalToConstant: 42)
         ])
         var animationRequests: [Bool] = []
-        var preferredSizeContinuation: CheckedContinuation<Void, Never>?
         let contentHostView = AccessoryContentHostView(
             contentView: contentView
         ) { animated in
             animationRequests.append(animated)
-            if animationRequests.count == 2 {
-                preferredSizeContinuation?.resume()
-                preferredSizeContinuation = nil
-            }
         }
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
         let rootViewController = UIViewController()
@@ -83,10 +99,8 @@ struct AccessoryContentHostViewTests {
         rootViewController.view.addSubview(contentHostView)
 
         contentHostView.layoutIfNeeded()
-        await withCheckedContinuation { continuation in
-            preferredSizeContinuation = continuation
-            width.constant = 126
-        }
+        width.constant = 126
+        rootViewController.view.layoutIfNeeded()
 
         #expect(animationRequests == [false, true])
     }

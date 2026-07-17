@@ -307,6 +307,10 @@ final class SpyAccessoryRenderer: TabBarAccessoryRendering {
     private(set) var updateAnimationDurations: [TimeInterval] = []
     private(set) var lastState = TabBarAccessoryState()
 
+    func invalidateContentSize(animated: Bool) {
+        contentSizeInvalidationHandler?(animated)
+    }
+
     func render(
         from previousState: TabBarAccessoryState,
         to state: TabBarAccessoryState,
@@ -339,6 +343,10 @@ final class ReentrantAccessoryRenderer: TabBarAccessoryRendering {
     private(set) var renderAnimations: [Bool] = []
     private(set) var updatedStates: [TabBarAccessoryState] = []
     private(set) var updateAnimationDurations: [TimeInterval] = []
+
+    func invalidateContentSize(animated: Bool) {
+        contentSizeInvalidationHandler?(animated)
+    }
 
     func render(
         from previousState: TabBarAccessoryState,

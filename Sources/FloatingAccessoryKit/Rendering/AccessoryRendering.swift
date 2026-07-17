@@ -16,6 +16,8 @@ enum TabBarAccessoryRenderResult {
 protocol TabBarAccessoryRendering: AnyObject {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)? { get set }
 
+    func invalidateContentSize(animated: Bool)
+
     func render(
         from previousState: TabBarAccessoryState,
         to state: TabBarAccessoryState,

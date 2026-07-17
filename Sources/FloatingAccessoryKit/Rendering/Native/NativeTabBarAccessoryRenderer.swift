@@ -26,6 +26,10 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         )
     }
 
+    func invalidateContentSize(animated: Bool) {
+        contentHostView?.invalidatePreferredSize(animated: animated)
+    }
+
     func render(
         from previousState: TabBarAccessoryState,
         to state: TabBarAccessoryState,

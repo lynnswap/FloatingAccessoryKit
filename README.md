@@ -35,6 +35,22 @@ final class MainTabBarController: UITabBarController {
 }
 ```
 
+## Content Size Updates
+
+Layout-driven content-size changes are measured automatically. If you change a
+view's intrinsic size, bounds, or another fitting-size input without causing its
+host to lay out, invalidate the accessory measurement explicitly:
+
+```swift
+button.setTitle("Updated", for: .normal)
+button.invalidateIntrinsicContentSize()
+floatingAccessoryController.invalidateContentSize()
+```
+
+The default size update animates with UIKit timing and respects Reduce Motion.
+Pass `animated: false` when the new size should be applied immediately. The
+content view remains installed, and its position and visibility are preserved.
+
 ## Accessory Background
 
 The view passed to `setContentView` is foreground content. Do not add your own capsule or material background.
@@ -91,6 +107,13 @@ These notes apply when upgrading from `v0.2.x` or earlier to `v0.3.0`.
   ```
 
 - `position` and `isHidden` now remain unchanged when content is removed. Installing content without a `position` also preserves the current position.
-- Content-size changes are observed automatically. After initial measurement, size changes animate with UIKit timing and respect Reduce Motion. Do not resubmit the same view just to trigger measurement.
+- Replace resubmitting the same view for measurement with an explicit size invalidation:
+
+  ```swift
+  view.invalidateIntrinsicContentSize()
+  accessoryController.invalidateContentSize()
+  ```
+
+  Layout-driven changes are still measured automatically. Explicit invalidation animates by default with UIKit timing and respects Reduce Motion.
 - `removeContent(animated:)` detaches the consumer view before returning. Any remaining removal animation uses a snapshot.
 - On iOS 18, replace direct calls to `UITabBarController.setTabBarHidden(_:animated:)` with `floatingAccessoryController.setTabBarHidden(_:animated:)` so the overlay is updated in the same operation.

@@ -14,6 +14,7 @@ public func exerciseFloatingAccessoryPublicAPI(
         animated: false
     )
     accessoryController.setPosition(.center, animated: false)
+    accessoryController.invalidateContentSize(animated: false)
     accessoryController.setHidden(true, animated: false)
     accessoryController.setHidden(false, animated: false)
     accessoryController.setTabBarHidden(false, animated: false)

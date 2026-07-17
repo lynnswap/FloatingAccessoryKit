@@ -73,7 +73,7 @@ struct TabBarAccessoryControllerTests {
         #expect((reentrantAnimationDurations.last ?? 0) > 0)
     }
 
-    @Test func preferredSizeInvalidationPreservesAnimationIntent() {
+    @Test func explicitContentSizeInvalidationPreservesAnimationIntent() {
         let tabBarController = makeTestTabBarController()
         let renderer = SpyAccessoryRenderer()
         let controller = TabBarAccessoryController(
@@ -86,8 +86,8 @@ struct TabBarAccessoryControllerTests {
         tabBarController.view.layoutIfNeeded()
         let baselineUpdateCount = renderer.updateCallCount
 
-        renderer.contentSizeInvalidationHandler?(false)
-        renderer.contentSizeInvalidationHandler?(true)
+        controller.invalidateContentSize(animated: false)
+        controller.invalidateContentSize(animated: true)
 
         #expect(renderer.updateCallCount == baselineUpdateCount + 2)
         let animationDurations = renderer.updateAnimationDurations
@@ -96,7 +96,7 @@ struct TabBarAccessoryControllerTests {
         #expect((animationDurations.last ?? 0) > 0)
     }
 
-    @Test func preferredSizeInvalidationRespectsReduceMotion() {
+    @Test func explicitContentSizeInvalidationRespectsReduceMotion() {
         let tabBarController = makeTestTabBarController()
         let renderer = SpyAccessoryRenderer()
         let controller = TabBarAccessoryController(
@@ -111,11 +111,25 @@ struct TabBarAccessoryControllerTests {
         let baselineUpdateCount = renderer.updateCallCount
 
         UIView.animate(withDuration: 1) {
-            renderer.contentSizeInvalidationHandler?(true)
+            controller.invalidateContentSize(animated: true)
         }
 
         #expect(renderer.updateCallCount == baselineUpdateCount + 1)
         #expect(renderer.updateAnimationDurations.last == 0)
+    }
+
+    @Test func contentSizeInvalidationWithoutContentDoesNotRender() {
+        let tabBarController = makeTestTabBarController()
+        let renderer = SpyAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+
+        controller.invalidateContentSize()
+
+        #expect(renderer.renderCallCount == 0)
+        #expect(renderer.updateCallCount == 0)
     }
 
     @Test func stateOnlyPreconfigurationDoesNotRender() {

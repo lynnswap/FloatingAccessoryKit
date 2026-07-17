@@ -475,6 +475,11 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
 
         super.init(rootViewController: sampleTabBarController)
 
+        accessoryView.onContentSizeChange = { [weak sampleTabBarController] in
+            sampleTabBarController?.floatingAccessoryController
+                .invalidateContentSize()
+        }
+
         configureNavigationItem()
         sampleTabBarController.onTabBarVisibilityChange = { [weak self] hidden in
             self?.syncTabBarVisibility(hidden)
@@ -599,6 +604,7 @@ private final class SampleAccessoryView: UIStackView {
     private static let minimumButtonLength: CGFloat = 44
 
     private let minusButtonStack = UIStackView()
+    var onContentSizeChange: (@MainActor () -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -695,6 +701,7 @@ private final class SampleAccessoryView: UIStackView {
     private func notifyContentSizeDidChange() {
         minusButtonStack.invalidateIntrinsicContentSize()
         invalidateIntrinsicContentSize()
+        onContentSizeChange?()
     }
 }
 

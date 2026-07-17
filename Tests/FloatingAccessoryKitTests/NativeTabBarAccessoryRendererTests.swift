@@ -67,7 +67,7 @@ struct NativeTabBarAccessoryRendererTests {
         #expect(size.height.isFinite && size.height > 0)
     }
 
-    @Test func layoutRemeasuresChangedContentWithoutResubmission() throws {
+    @Test func explicitContentSizeInvalidationRemeasuresWithoutResubmission() throws {
         guard #available(iOS 26.0, *) else {
             return
         }
@@ -83,8 +83,7 @@ struct NativeTabBarAccessoryRendererTests {
         let initialSize = try managedSize(of: contentHost)
 
         contentView.size = CGSize(width: 132, height: 44)
-        contentHost.setNeedsLayout()
-        contentHost.layoutIfNeeded()
+        controller.invalidateContentSize(animated: false)
         tabBarController.view.layoutIfNeeded()
 
         let updatedSize = try managedSize(of: contentHost)
