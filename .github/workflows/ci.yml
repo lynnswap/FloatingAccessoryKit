@@ -124,3 +124,19 @@ jobs:
             -enableCodeCoverage NO \
             -parallel-testing-enabled NO \
             -maximum-concurrent-test-simulator-destinations 1
+
+      - name: Build public API client fixture
+        working-directory: Tests/Fixtures/PublicAPIClient
+        run: |
+          xcodebuild build \
+            -scheme FloatingAccessoryKitPublicAPIClient \
+            -destination "${DESTINATION}" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build sample app
+        run: |
+          xcodebuild build \
+            -project Tools/Sample/Sample.xcodeproj \
+            -scheme Sample \
+            -destination "${DESTINATION}" \
+            CODE_SIGNING_ALLOWED=NO

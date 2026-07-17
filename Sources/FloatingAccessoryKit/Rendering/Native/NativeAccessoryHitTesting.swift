@@ -3,7 +3,7 @@ import UIKit
 
 @MainActor
 @available(iOS 26.0, *)
-enum TabBarAccessoryHitTesting {
+enum NativeAccessoryHitTesting {
     private typealias HitTestIMP = @convention(c) (UIView, Selector, CGPoint, UIEvent?) -> UIView?
 
     private static var installedClassStates: [ObjectIdentifier: ClassState] = [:]
@@ -46,6 +46,10 @@ enum TabBarAccessoryHitTesting {
         guard let baseMethod = class_getInstanceMethod(UIView.self, selector),
               let typeEncoding = method_getTypeEncoding(baseMethod),
               let originalImplementation = class_getMethodImplementation(containerClass, selector) else {
+            FloatingAccessoryDiagnostics.reportOnce(
+                id: "native-hit-testing-hook-unavailable-\(NSStringFromClass(containerClass))",
+                "Native accessory hit testing is using UIKit's default behavior because the hit-testing capability is unavailable on \(NSStringFromClass(containerClass))."
+            )
             return
         }
 
@@ -64,9 +68,24 @@ enum TabBarAccessoryHitTesting {
         }
 
         let implementation = imp_implementationWithBlock(block)
-        if !class_addMethod(containerClass, selector, implementation, typeEncoding),
+        let didAddMethod = class_addMethod(
+            containerClass,
+            selector,
+            implementation,
+            typeEncoding
+        )
+        if !didAddMethod,
            let method = class_getInstanceMethod(containerClass, selector) {
             method_setImplementation(method, implementation)
+        }
+
+        guard didAddMethod
+                || class_getMethodImplementation(containerClass, selector) == implementation else {
+            FloatingAccessoryDiagnostics.reportOnce(
+                id: "native-hit-testing-hook-installation-failed-\(NSStringFromClass(containerClass))",
+                "Native accessory hit testing is using UIKit's default behavior because its hit-testing capability could not be installed on \(NSStringFromClass(containerClass))."
+            )
+            return
         }
 
         installedClassStates[classID] = ClassState(

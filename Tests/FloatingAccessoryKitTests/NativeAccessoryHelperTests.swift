@@ -4,7 +4,69 @@ import UIKit
 
 @MainActor
 @Suite(.serialized)
-struct TabBarAccessoryNativeHelperTests {
+struct NativeAccessoryHelperTests {
+    @Test func environmentObservationTracksContainerFrameChanges() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 48))
+        let contentHostView = AccessoryContentHostView(
+            contentView: UIView(),
+            position: .center,
+            contentOwnershipRelinquished: { _ in },
+            preferredSizeDidChange: { _ in }
+        )
+        let counter = NativeEnvironmentObservationCounter()
+        let observation = NativeAccessoryEnvironmentObservation(
+            container: container,
+            contentHostView: contentHostView
+        ) {
+            counter.value += 1
+        }
+
+        container.frame.size.height = 32
+
+        #expect(counter.value == 1)
+        observation.invalidate()
+    }
+
+    @Test func environmentObservationTracksAccessoryTraitChanges() async {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 48))
+        let contentHostView = AccessoryContentHostView(
+            contentView: UIView(),
+            position: .center,
+            contentOwnershipRelinquished: { _ in },
+            preferredSizeDidChange: { _ in }
+        )
+        let rootViewController = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = rootViewController
+        window.makeKeyAndVisible()
+        rootViewController.view.addSubview(container)
+        container.addSubview(contentHostView)
+        rootViewController.view.layoutIfNeeded()
+
+        let counter = NativeEnvironmentObservationCounter()
+        let observation = NativeAccessoryEnvironmentObservation(
+            container: container,
+            contentHostView: contentHostView
+        ) {
+            counter.value += 1
+        }
+
+        container.traitOverrides.tabAccessoryEnvironment = .regular
+        await Task.yield()
+
+        #expect(counter.value == 1)
+        observation.invalidate()
+        window.isHidden = true
+    }
+
     @Test func registeredContainerLimitsHitTestingToContent() {
         guard #available(iOS 26.0, *) else {
             return
@@ -15,9 +77,9 @@ struct TabBarAccessoryNativeHelperTests {
         button.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
         container.addSubview(button)
 
-        TabBarAccessoryHitTesting.register(container: container, contentView: button)
+        NativeAccessoryHitTesting.register(container: container, contentView: button)
         defer {
-            TabBarAccessoryHitTesting.unregister(container: container)
+            NativeAccessoryHitTesting.unregister(container: container)
         }
 
         #expect(container.hitTest(CGPoint(x: 10, y: 10), with: nil) == nil)
@@ -34,8 +96,8 @@ struct TabBarAccessoryNativeHelperTests {
         button.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
         container.addSubview(button)
 
-        TabBarAccessoryHitTesting.register(container: container, contentView: button)
-        TabBarAccessoryHitTesting.unregister(container: container)
+        NativeAccessoryHitTesting.register(container: container, contentView: button)
+        NativeAccessoryHitTesting.unregister(container: container)
 
         #expect(container.hitTest(CGPoint(x: 10, y: 10), with: nil) === container)
         #expect(container.hitTest(CGPoint(x: 30, y: 30), with: nil) === button)
@@ -56,9 +118,9 @@ struct TabBarAccessoryNativeHelperTests {
         unregisteredButton.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
         unregisteredContainer.addSubview(unregisteredButton)
 
-        TabBarAccessoryHitTesting.register(container: registeredContainer, contentView: registeredButton)
+        NativeAccessoryHitTesting.register(container: registeredContainer, contentView: registeredButton)
         defer {
-            TabBarAccessoryHitTesting.unregister(container: registeredContainer)
+            NativeAccessoryHitTesting.unregister(container: registeredContainer)
         }
 
         #expect(registeredContainer.hitTest(CGPoint(x: 10, y: 10), with: nil) == nil)
@@ -75,9 +137,9 @@ struct TabBarAccessoryNativeHelperTests {
         button.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
         container.addSubview(button)
 
-        TabBarAccessoryHitTesting.register(container: container, contentView: button)
+        NativeAccessoryHitTesting.register(container: container, contentView: button)
         defer {
-            TabBarAccessoryHitTesting.unregister(container: container)
+            NativeAccessoryHitTesting.unregister(container: container)
         }
 
         #expect(container.hitTest(CGPoint(x: 10, y: 10), with: nil) === container)
@@ -94,16 +156,16 @@ struct TabBarAccessoryNativeHelperTests {
         let contentView = AccessoryContentView()
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .trailing
@@ -124,16 +186,16 @@ struct TabBarAccessoryNativeHelperTests {
         let contentView = AccessoryContentView()
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .trailing
@@ -154,21 +216,21 @@ struct TabBarAccessoryNativeHelperTests {
         let contentView = AccessoryContentView()
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .trailing
         )
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 120,
             position: .trailing
@@ -177,8 +239,8 @@ struct TabBarAccessoryNativeHelperTests {
         host.layoutIfNeeded()
 
         #expect(container.frame == CGRect(x: 0, y: 0, width: 100, height: 48))
-        #expect(TabBarAccessoryContainerSizing.availableWidth(for: container) == 100)
-        #expect(TabBarAccessoryContainerSizing.availableHeight(for: container) == 48)
+        #expect(NativeAccessoryContainerLayout.availableWidth(for: container) == 100)
+        #expect(NativeAccessoryContainerLayout.availableHeight(for: container) == 48)
     }
 
     @Test func sizingAvailableHeightTracksSystemFrameChanges() {
@@ -191,24 +253,24 @@ struct TabBarAccessoryNativeHelperTests {
         let contentView = AccessoryContentView()
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
         host.accessoryFrame.size.height = 32
         host.setNeedsLayout()
         host.layoutIfNeeded()
-        #expect(TabBarAccessoryContainerSizing.availableHeight(for: container) == 32)
+        #expect(NativeAccessoryContainerLayout.availableHeight(for: container) == 32)
 
         host.accessoryFrame.size.height = 64
         host.setNeedsLayout()
         host.layoutIfNeeded()
-        #expect(TabBarAccessoryContainerSizing.availableHeight(for: container) == 64)
+        #expect(NativeAccessoryContainerLayout.availableHeight(for: container) == 64)
     }
 
     @Test func sizingIgnoresInvalidContentWidth() {
@@ -221,16 +283,16 @@ struct TabBarAccessoryNativeHelperTests {
         let contentView = AccessoryContentView()
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: .nan,
             position: .trailing
@@ -238,7 +300,7 @@ struct TabBarAccessoryNativeHelperTests {
         host.layoutIfNeeded()
         #expect(container.frame == CGRect(x: 0, y: 0, width: 100, height: 48))
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: -1,
             position: .trailing
@@ -258,16 +320,16 @@ struct TabBarAccessoryNativeHelperTests {
         host.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        #expect(TabBarAccessoryContainerSizing.availableWidth(for: container) == 100)
+        #expect(NativeAccessoryContainerLayout.availableWidth(for: container) == 100)
     }
 
     @Test func unregisteringSizingRestoresSystemFrame() {
@@ -280,17 +342,17 @@ struct TabBarAccessoryNativeHelperTests {
         let contentView = AccessoryContentView()
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .trailing
         )
-        TabBarAccessoryContainerSizing.unregister(container: container)
+        NativeAccessoryContainerLayout.unregister(container: container)
         host.layoutIfNeeded()
 
         #expect(container.frame == CGRect(x: 0, y: 0, width: 100, height: 48))
@@ -306,16 +368,16 @@ struct TabBarAccessoryNativeHelperTests {
         let contentView = AccessoryContentView()
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .leading
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .leading
@@ -323,7 +385,7 @@ struct TabBarAccessoryNativeHelperTests {
         host.layoutIfNeeded()
         #expect(container.frame == CGRect(x: 0, y: 0, width: 44, height: 48))
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .center
@@ -331,7 +393,7 @@ struct TabBarAccessoryNativeHelperTests {
         host.layoutIfNeeded()
         #expect(container.frame == CGRect(x: 28, y: 0, width: 44, height: 48))
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .trailing
@@ -352,16 +414,16 @@ struct TabBarAccessoryNativeHelperTests {
         container.semanticContentAttribute = .forceRightToLeft
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .leading
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .leading
@@ -369,7 +431,7 @@ struct TabBarAccessoryNativeHelperTests {
         host.layoutIfNeeded()
         #expect(container.frame == CGRect(x: 56, y: 0, width: 44, height: 48))
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .trailing
@@ -389,16 +451,16 @@ struct TabBarAccessoryNativeHelperTests {
         host.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
         host.bind(container)
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .center
         )
         defer {
-            TabBarAccessoryContainerSizing.unregister(container: container)
+            NativeAccessoryContainerLayout.unregister(container: container)
         }
 
-        TabBarAccessoryContainerSizing.update(
+        NativeAccessoryContainerLayout.update(
             container: container,
             contentWidth: 44,
             position: .center
@@ -417,15 +479,19 @@ struct TabBarAccessoryNativeHelperTests {
         let container = AccessoryContainerView(frame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let contentView = UIView()
 
-        TabBarAccessoryContainerSizing.register(
+        NativeAccessoryContainerLayout.register(
             container: container,
             contentView: contentView,
             position: .trailing
         )
-        TabBarAccessoryContainerSizing.unregister(container: container)
+        NativeAccessoryContainerLayout.unregister(container: container)
 
         container.frame = CGRect(x: 10, y: 20, width: 200, height: 48)
 
         #expect(container.frame == CGRect(x: 10, y: 20, width: 200, height: 48))
     }
+}
+
+private final class NativeEnvironmentObservationCounter: @unchecked Sendable {
+    var value = 0
 }
