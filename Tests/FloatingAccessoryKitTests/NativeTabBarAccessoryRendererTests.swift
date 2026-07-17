@@ -134,6 +134,58 @@ struct NativeTabBarAccessoryRendererTests {
         #expect(contentView.superview != nil)
     }
 
+    @Test func showingContentRebindsAfterDeferredNativeAttachment() async throws {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let window = UIWindow(frame: tabBarController.view.bounds)
+        window.rootViewController = tabBarController
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let nativeRenderer = NativeTabBarAccessoryRenderer()
+        let renderer = AccessoryRendererHarness(renderer: nativeRenderer)
+        nativeRenderer.contentSizeInvalidationHandler = { [weak renderer, weak tabBarController] _ in
+            guard let renderer,
+                  let tabBarController else {
+                return
+            }
+            renderer.update(in: tabBarController)
+        }
+        let contentView = FixedSizeView(size: CGSize(width: 88, height: 44))
+
+        renderer.setAccessoryView(
+            contentView,
+            position: .trailing,
+            animated: false,
+            in: tabBarController
+        )
+        tabBarController.view.layoutIfNeeded()
+        renderer.update(in: tabBarController)
+        renderer.setHidden(true, animated: false, in: tabBarController)
+        renderer.setHidden(false, animated: false, in: tabBarController)
+        await withCheckedContinuation { continuation in
+            RunLoop.main.perform(inModes: [.common]) {
+                continuation.resume()
+            }
+        }
+
+        let contentHost = try #require(
+            contentView.superview as? AccessoryContentHostView
+        )
+        let container = try #require(contentHost.superview)
+        let managedCenteringConstraint = try #require(
+            container.constraints.first { constraint in
+                constraint.isActive
+                    && constraint.firstItem === contentHost
+                    && constraint.firstAttribute == .centerX
+            }
+        )
+        #expect(managedCenteringConstraint.secondItem === container)
+        #expect(try managedSize(of: contentHost).width > 0)
+    }
+
     @Test func animatedRemovalDetachesConsumerSynchronously() {
         guard #available(iOS 26.0, *) else {
             return

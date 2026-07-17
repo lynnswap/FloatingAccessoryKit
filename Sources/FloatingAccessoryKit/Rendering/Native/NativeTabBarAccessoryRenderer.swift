@@ -13,6 +13,7 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
     private var heightConstraint: NSLayoutConstraint?
     private var originalHostTranslatesAutoresizingMaskIntoConstraints: Bool?
     private var environmentObservation: NativeAccessoryEnvironmentObservation?
+    private var pendingBindingRetry: UUID?
     private let layoutAnimator: TabBarAccessoryLayoutAnimator
 
     init(
@@ -61,6 +62,7 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         }
 
         if state.isHidden {
+            cancelPendingBindingRetry()
             if tabBarController.bottomAccessory === tabAccessory {
                 tabBarController.setBottomAccessory(nil, animated: animated)
             }
@@ -155,10 +157,11 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
             containing: contentHostView,
             in: tabBarController
         ) else {
-            tabBarController.view.setNeedsLayout()
+            scheduleBindingRetry(in: tabBarController)
             return .applied
         }
 
+        cancelPendingBindingRetry()
         bindContentHostIfNeeded(
             contentHostView,
             contentView: contentView,
@@ -190,6 +193,7 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         animated: Bool,
         from tabBarController: UITabBarController
     ) {
+        cancelPendingBindingRetry()
         guard tabAccessory != nil || contentHostView != nil else {
             return
         }
@@ -222,6 +226,7 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
     private func relinquishPresentationAfterOwnershipLoss(
         in tabBarController: UITabBarController
     ) {
+        cancelPendingBindingRetry()
         _ = contentHostView?.detachContent(keepingSnapshot: false)
         unbindContentHostConstraints()
         if tabBarController.bottomAccessory === tabAccessory {
@@ -229,6 +234,39 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         }
         tabAccessory = nil
         contentHostView = nil
+    }
+
+    private func scheduleBindingRetry(
+        in tabBarController: UITabBarController
+    ) {
+        guard pendingBindingRetry == nil else {
+            return
+        }
+
+        // UIKit can defer moving a UITabAccessory's content into its private
+        // container until the next layout pass. Retry through the controller's
+        // invalidation handler so the latest semantic state is applied.
+        let retry = UUID()
+        pendingBindingRetry = retry
+        tabBarController.view.setNeedsLayout()
+        RunLoop.main.perform(inModes: [.common]) { [weak self, weak tabBarController] in
+            MainActor.assumeIsolated {
+                guard let self,
+                      self.pendingBindingRetry == retry else {
+                    return
+                }
+
+                tabBarController?.view.layoutIfNeeded()
+                self.contentSizeInvalidationHandler?(false)
+                if self.pendingBindingRetry == retry {
+                    self.pendingBindingRetry = nil
+                }
+            }
+        }
+    }
+
+    private func cancelPendingBindingRetry() {
+        pendingBindingRetry = nil
     }
 
     private func accessoryContainer(
