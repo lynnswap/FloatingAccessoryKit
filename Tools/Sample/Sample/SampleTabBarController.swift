@@ -710,8 +710,6 @@ private func makeAccessoryButton(
     button.accessibilityLabel = accessibilityLabel
     button.contentHorizontalAlignment = .center
     button.contentVerticalAlignment = .center
-    button.setContentHuggingPriority(.required, for: .horizontal)
-    button.setContentCompressionResistancePriority(.required, for: .horizontal)
     button.widthAnchor.constraint(equalTo: button.heightAnchor).isActive = true
     if let action {
         button.addAction(
