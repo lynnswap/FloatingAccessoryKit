@@ -7,6 +7,7 @@ final class AccessoryContentHostView: UIView {
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
     private let preferredSizeDidChange: @MainActor (_ animated: Bool) -> Void
     private var lastObservedFittingSize: CGSize?
+    private var contentSizeObservation: AccessoryContentSizeObservation?
 
     init(
         contentView: UIView,
@@ -35,6 +36,7 @@ final class AccessoryContentHostView: UIView {
         // so assert the type's MainActor confinement for the synchronous
         // UIKit cleanup backstop.
         MainActor.assumeIsolated {
+            self.contentSizeObservation?.invalidate()
             NSLayoutConstraint.deactivate(contentConstraints)
             Self.restoreConsumerAutoresizingIfUnchanged(
                 contentView,
@@ -45,19 +47,17 @@ final class AccessoryContentHostView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        observePreferredSizeIfNeeded()
+    }
 
-        guard let contentView else {
-            return
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+
+        if window == nil {
+            stopObservingContentSize()
+        } else {
+            startObservingContentSizeIfNeeded()
         }
-
-        let fittingSize = measuredFittingSize(for: contentView)
-        guard lastObservedFittingSize?.isNearlyEqual(to: fittingSize) != true else {
-            return
-        }
-
-        let animated = lastObservedFittingSize != nil
-        lastObservedFittingSize = fittingSize
-        preferredSizeDidChange(animated)
     }
 
     @discardableResult
@@ -85,6 +85,7 @@ final class AccessoryContentHostView: UIView {
             originalValue: originalTranslatesAutoresizingMaskIntoConstraints
         )
 
+        stopObservingContentSize()
         self.contentView = nil
         self.originalTranslatesAutoresizingMaskIntoConstraints = nil
         lastObservedFittingSize = nil
@@ -114,6 +115,45 @@ final class AccessoryContentHostView: UIView {
             height
         ]
         NSLayoutConstraint.activate(contentConstraints)
+    }
+
+    private func startObservingContentSizeIfNeeded() {
+        guard contentSizeObservation == nil,
+              contentView != nil else {
+            return
+        }
+
+        // A constraint owned entirely by the consumer's subtree does not
+        // invalidate ancestor layout. Observe at the run-loop idle boundary so
+        // those changes are detected without waking the display while idle.
+        contentSizeObservation = AccessoryContentSizeObservation { [weak self] in
+            self?.observePreferredSizeIfNeeded()
+        }
+        observePreferredSizeIfNeeded()
+    }
+
+    private func stopObservingContentSize() {
+        guard let contentSizeObservation else {
+            return
+        }
+
+        contentSizeObservation.invalidate()
+        self.contentSizeObservation = nil
+    }
+
+    private func observePreferredSizeIfNeeded() {
+        guard let contentView else {
+            return
+        }
+
+        let fittingSize = measuredFittingSize(for: contentView)
+        guard lastObservedFittingSize?.isNearlyEqual(to: fittingSize) != true else {
+            return
+        }
+
+        let animated = lastObservedFittingSize != nil
+        lastObservedFittingSize = fittingSize
+        preferredSizeDidChange(animated)
     }
 
     private static func restoreConsumerAutoresizingIfUnchanged(
@@ -147,6 +187,38 @@ final class AccessoryContentHostView: UIView {
         }
 
         return contentView.bounds.size
+    }
+}
+
+private final class AccessoryContentSizeObservation {
+    private let observer: CFRunLoopObserver
+
+    init(onRunLoopTurn: @escaping @MainActor () -> Void) {
+        let activities = CFRunLoopActivity.beforeWaiting.rawValue
+            | CFRunLoopActivity.exit.rawValue
+        observer = CFRunLoopObserverCreateWithHandler(
+            kCFAllocatorDefault,
+            activities,
+            true,
+            0
+        ) { _, _ in
+            MainActor.assumeIsolated {
+                onRunLoopTurn()
+            }
+        }
+        CFRunLoopAddObserver(
+            CFRunLoopGetMain(),
+            observer,
+            .commonModes
+        )
+    }
+
+    func invalidate() {
+        CFRunLoopObserverInvalidate(observer)
+    }
+
+    deinit {
+        invalidate()
     }
 }
 

@@ -56,6 +56,41 @@ struct AccessoryContentHostViewTests {
         #expect(animationRequests == [false, true])
     }
 
+    @Test func internalConstraintChangeInvalidatesPreferredSizeAutomatically() async {
+        let contentView = UIView()
+        let width = contentView.widthAnchor.constraint(equalToConstant: 84)
+        NSLayoutConstraint.activate([
+            width,
+            contentView.heightAnchor.constraint(equalToConstant: 42)
+        ])
+        var animationRequests: [Bool] = []
+        var preferredSizeContinuation: CheckedContinuation<Void, Never>?
+        let contentHostView = AccessoryContentHostView(
+            contentView: contentView
+        ) { animated in
+            animationRequests.append(animated)
+            if animationRequests.count == 2 {
+                preferredSizeContinuation?.resume()
+                preferredSizeContinuation = nil
+            }
+        }
+        contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
+        let rootViewController = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = rootViewController
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        rootViewController.view.addSubview(contentHostView)
+
+        contentHostView.layoutIfNeeded()
+        await withCheckedContinuation { continuation in
+            preferredSizeContinuation = continuation
+            width.constant = 126
+        }
+
+        #expect(animationRequests == [false, true])
+    }
+
     @Test func deinitializationRestoresConsumerAutoresizing() {
         let contentView = UIView()
         contentView.translatesAutoresizingMaskIntoConstraints = true
