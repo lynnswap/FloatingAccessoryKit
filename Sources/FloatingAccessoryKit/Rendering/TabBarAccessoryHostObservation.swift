@@ -35,17 +35,9 @@ final class TabBarAccessoryHostObservation {
         layoutObservationView?.startObservingChanges()
     }
 
-    deinit {
-        let layoutObservationView = layoutObservationView
-        let selectedSafeAreaObservationView = selectedSafeAreaObservationView
-
-        // `isolated deinit` requires iOS 18.4. This package supports iOS 18.0,
-        // so assert the type's MainActor confinement for synchronous view
-        // cleanup when a selected controller outlives its tab bar controller.
-        MainActor.assumeIsolated {
-            layoutObservationView?.removeFromSuperview()
-            selectedSafeAreaObservationView?.removeFromSuperview()
-        }
+    isolated deinit {
+        layoutObservationView?.removeFromSuperview()
+        selectedSafeAreaObservationView?.removeFromSuperview()
     }
 
     private func installRootGeometryObservation(

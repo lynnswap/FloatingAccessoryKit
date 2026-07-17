@@ -12,24 +12,15 @@ final class OverlaySafeAreaAdjustment {
         lastWrittenBottom = consumerBaselineBottom
     }
 
-    deinit {
-        let viewController = viewController
-        let consumerBaselineBottom = consumerBaselineBottom
-        let lastWrittenBottom = lastWrittenBottom
-
-        // `isolated deinit` requires iOS 18.4. This package supports iOS 18.0,
-        // so assert the type's MainActor confinement for the synchronous
-        // UIKit cleanup backstop.
-        MainActor.assumeIsolated {
-            guard let viewController else {
-                return
-            }
-            _ = Self.restore(
-                viewController: viewController,
-                consumerBaselineBottom: consumerBaselineBottom,
-                lastWrittenBottom: lastWrittenBottom
-            )
+    isolated deinit {
+        guard let viewController else {
+            return
         }
+        _ = Self.restore(
+            viewController: viewController,
+            consumerBaselineBottom: consumerBaselineBottom,
+            lastWrittenBottom: lastWrittenBottom
+        )
     }
 
     @discardableResult

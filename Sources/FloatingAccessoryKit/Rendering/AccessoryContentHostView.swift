@@ -32,23 +32,13 @@ final class AccessoryContentHostView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    deinit {
-        let contentView = contentView
-        let contentConstraints = contentConstraints
-        let originalTranslatesAutoresizingMaskIntoConstraints =
-            originalTranslatesAutoresizingMaskIntoConstraints
-
-        // `isolated deinit` requires iOS 18.4. This package supports iOS 18.0,
-        // so assert the type's MainActor confinement for the synchronous
-        // UIKit cleanup backstop.
-        MainActor.assumeIsolated {
-            NSLayoutConstraint.deactivate(contentConstraints)
-            if contentView?.superview === self {
-                Self.restoreConsumerAutoresizingIfUnchanged(
-                    contentView,
-                    originalValue: originalTranslatesAutoresizingMaskIntoConstraints
-                )
-            }
+    isolated deinit {
+        NSLayoutConstraint.deactivate(contentConstraints)
+        if contentView?.superview === self {
+            Self.restoreConsumerAutoresizingIfUnchanged(
+                contentView,
+                originalValue: originalTranslatesAutoresizingMaskIntoConstraints
+            )
         }
     }
 
