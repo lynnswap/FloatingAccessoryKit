@@ -230,7 +230,7 @@ final class OverlayTabBarAccessoryRenderer: TabBarAccessoryRendering {
 
         if horizontalConstraint == nil {
             horizontalConstraint = hostView.centerXAnchor.constraint(
-                equalTo: tabBarController.view.leadingAnchor
+                equalTo: tabBarController.view.leftAnchor
             )
             horizontalConstraint?.isActive = true
         }

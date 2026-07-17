@@ -80,7 +80,17 @@ struct OverlayTabBarAccessoryRendererTests {
         }
 
         let tabBarController = makeTestTabBarController()
+        let window = UIWindow(frame: tabBarController.view.bounds)
+        window.rootViewController = tabBarController
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
         tabBarController.view.semanticContentAttribute = .forceRightToLeft
+        tabBarController.view.setNeedsLayout()
+        tabBarController.view.layoutIfNeeded()
+        #expect(
+            tabBarController.view.effectiveUserInterfaceLayoutDirection
+                == .rightToLeft
+        )
         let renderer = AccessoryRendererHarness(
             renderer: OverlayTabBarAccessoryRenderer()
         )
@@ -96,6 +106,14 @@ struct OverlayTabBarAccessoryRendererTests {
 
         let hostView = try installedHost(for: contentView)
         let safeAreaFrame = tabBarController.view.safeAreaLayoutGuide.layoutFrame
+        let horizontalConstraint = try #require(
+            tabBarController.view.constraints.first { constraint in
+                constraint.isActive
+                    && constraint.firstItem === hostView
+                    && constraint.firstAttribute == .centerX
+            }
+        )
+        #expect(horizontalConstraint.secondAttribute == .left)
         #expect(abs(hostView.frame.maxX - (safeAreaFrame.maxX - 8)) <= 0.5)
     }
 
