@@ -3,6 +3,7 @@ import UIKit
 @MainActor
 final class OverlayTabBarAccessoryRenderer: TabBarAccessoryRendering {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
+    var contentOwnershipRelinquishedHandler: (@MainActor (_ contentView: UIView) -> Void)?
 
     private enum Metrics {
         static let fallbackLength: CGFloat = 48
@@ -165,7 +166,10 @@ final class OverlayTabBarAccessoryRenderer: TabBarAccessoryRendering {
     ) {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
-            position: position
+            position: position,
+            contentOwnershipRelinquished: { [weak self] contentView in
+                self?.contentOwnershipRelinquishedHandler?(contentView)
+            }
         ) { [weak self] animated in
             self?.contentSizeInvalidationHandler?(animated)
         }

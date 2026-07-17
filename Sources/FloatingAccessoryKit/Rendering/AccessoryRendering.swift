@@ -15,6 +15,7 @@ enum TabBarAccessoryRenderResult {
 @MainActor
 protocol TabBarAccessoryRendering: AnyObject {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)? { get set }
+    var contentOwnershipRelinquishedHandler: (@MainActor (_ contentView: UIView) -> Void)? { get set }
 
     func invalidateContentSize(animated: Bool)
 

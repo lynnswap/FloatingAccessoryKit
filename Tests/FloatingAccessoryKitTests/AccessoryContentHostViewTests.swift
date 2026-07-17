@@ -10,6 +10,7 @@ struct AccessoryContentHostViewTests {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
             position: .center,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
@@ -28,6 +29,7 @@ struct AccessoryContentHostViewTests {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
             position: .center,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
@@ -57,6 +59,7 @@ struct AccessoryContentHostViewTests {
             let contentHostView = AccessoryContentHostView(
                 contentView: contentView,
                 position: testCase.position,
+                contentOwnershipRelinquished: { _ in },
                 preferredSizeDidChange: { _ in }
             )
             contentHostView.frame = CGRect(
@@ -82,6 +85,7 @@ struct AccessoryContentHostViewTests {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
             position: .leading,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         contentHostView.semanticContentAttribute = .forceRightToLeft
@@ -101,6 +105,7 @@ struct AccessoryContentHostViewTests {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
             position: .center,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
@@ -119,7 +124,8 @@ struct AccessoryContentHostViewTests {
         var animationRequests: [Bool] = []
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
-            position: .center
+            position: .center,
+            contentOwnershipRelinquished: { _ in }
         ) { animated in
             animationRequests.append(animated)
         }
@@ -140,7 +146,8 @@ struct AccessoryContentHostViewTests {
         var animationRequests: [Bool] = []
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
-            position: .center
+            position: .center,
+            contentOwnershipRelinquished: { _ in }
         ) { animated in
             animationRequests.append(animated)
         }
@@ -165,7 +172,8 @@ struct AccessoryContentHostViewTests {
         var animationRequests: [Bool] = []
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
-            position: .center
+            position: .center,
+            contentOwnershipRelinquished: { _ in }
         ) { animated in
             animationRequests.append(animated)
         }
@@ -193,6 +201,7 @@ struct AccessoryContentHostViewTests {
             let contentHostView = AccessoryContentHostView(
                 contentView: contentView,
                 position: .center,
+                contentOwnershipRelinquished: { _ in },
                 preferredSizeDidChange: { _ in }
             )
             weakContentHostView = contentHostView
@@ -209,6 +218,7 @@ struct AccessoryContentHostViewTests {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
             position: .center,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         let newOwner = UIView()
@@ -230,6 +240,7 @@ struct AccessoryContentHostViewTests {
             let contentHostView = AccessoryContentHostView(
                 contentView: contentView,
                 position: .center,
+                contentOwnershipRelinquished: { _ in },
                 preferredSizeDidChange: { _ in }
             )
             weakContentHostView = contentHostView
@@ -247,6 +258,7 @@ struct AccessoryContentHostViewTests {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
             position: .center,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         let newOwner = UIView()
@@ -256,6 +268,37 @@ struct AccessoryContentHostViewTests {
         contentHostView.detachContent(keepingSnapshot: false)
 
         #expect(contentView.superview === newOwner)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+    }
+
+    @Test func attachingToSecondHostRelinquishesFirstHost() {
+        let contentView = UIView()
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+        var relinquishedContent: [UIView] = []
+        let firstHost = AccessoryContentHostView(
+            contentView: contentView,
+            position: .trailing,
+            contentOwnershipRelinquished: { contentView in
+                relinquishedContent.append(contentView)
+            },
+            preferredSizeDidChange: { _ in }
+        )
+
+        let secondHost = AccessoryContentHostView(
+            contentView: contentView,
+            position: .trailing,
+            contentOwnershipRelinquished: { _ in },
+            preferredSizeDidChange: { _ in }
+        )
+
+        #expect(firstHost.contentView == nil)
+        #expect(relinquishedContent.count == 1)
+        #expect(relinquishedContent.first === contentView)
+        #expect(contentView.superview === secondHost)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == false)
+
+        secondHost.detachContent(keepingSnapshot: false)
+
         #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
     }
 }

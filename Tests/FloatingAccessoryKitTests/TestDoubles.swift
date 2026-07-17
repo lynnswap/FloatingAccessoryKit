@@ -301,6 +301,7 @@ final class AccessoryRendererHarness {
 @MainActor
 final class SpyAccessoryRenderer: TabBarAccessoryRendering {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
+    var contentOwnershipRelinquishedHandler: (@MainActor (_ contentView: UIView) -> Void)?
     var onInvalidateContentSize: (@MainActor () -> Void)?
 
     private(set) var renderCallCount = 0
@@ -338,6 +339,7 @@ final class SpyAccessoryRenderer: TabBarAccessoryRendering {
 @MainActor
 final class ReentrantAccessoryRenderer: TabBarAccessoryRendering {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
+    var contentOwnershipRelinquishedHandler: (@MainActor (_ contentView: UIView) -> Void)?
     var nextRenderResult = TabBarAccessoryRenderResult.applied
     var onNextRender: (@MainActor () -> Void)?
     var onNextUpdate: (@MainActor () -> Void)?

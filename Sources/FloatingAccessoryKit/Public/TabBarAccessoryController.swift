@@ -77,6 +77,9 @@ public final class TabBarAccessoryController {
         self.renderer.contentSizeInvalidationHandler = { [weak self] animated in
             self?.updateLayout(animated: animated)
         }
+        self.renderer.contentOwnershipRelinquishedHandler = { [weak self] contentView in
+            self?.relinquishContentIfOwned(contentView)
+        }
     }
 
     /// The currently installed content view, or `nil` when no content is
@@ -354,6 +357,16 @@ public final class TabBarAccessoryController {
            state.contentView === renderedContentView {
             state.contentView = nil
         }
+    }
+
+    private func relinquishContentIfOwned(_ contentView: UIView) {
+        guard state.contentView === contentView else {
+            return
+        }
+
+        let previousState = state
+        state.contentView = nil
+        render(from: previousState, animated: false)
     }
 
     private func installHostObservationIfNeeded(

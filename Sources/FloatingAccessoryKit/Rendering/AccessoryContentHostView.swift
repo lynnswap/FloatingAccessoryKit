@@ -7,15 +7,18 @@ final class AccessoryContentHostView: UIView {
     private var horizontalConstraint: NSLayoutConstraint?
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
     private var position: TabBarAccessoryController.Position
+    private let contentOwnershipRelinquished: @MainActor (_ contentView: UIView) -> Void
     private let preferredSizeDidChange: @MainActor (_ animated: Bool) -> Void
     private var lastObservedFittingSize: CGSize?
 
     init(
         contentView: UIView,
         position: TabBarAccessoryController.Position,
+        contentOwnershipRelinquished: @escaping @MainActor (_ contentView: UIView) -> Void,
         preferredSizeDidChange: @escaping @MainActor (_ animated: Bool) -> Void
     ) {
         self.position = position
+        self.contentOwnershipRelinquished = contentOwnershipRelinquished
         self.preferredSizeDidChange = preferredSizeDidChange
 
         super.init(frame: .zero)
@@ -121,6 +124,10 @@ final class AccessoryContentHostView: UIView {
     private func attach(_ contentView: UIView) {
         precondition(self.contentView == nil)
 
+        if let previousHost = contentView.superview as? AccessoryContentHostView {
+            previousHost.relinquishContentForHandoff()
+        }
+
         self.contentView = contentView
         originalTranslatesAutoresizingMaskIntoConstraints = contentView.translatesAutoresizingMaskIntoConstraints
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -139,6 +146,16 @@ final class AccessoryContentHostView: UIView {
             height
         ]
         NSLayoutConstraint.activate(contentConstraints)
+    }
+
+    private func relinquishContentForHandoff() {
+        guard let contentView,
+              contentView.superview === self else {
+            return
+        }
+
+        _ = detachContent(keepingSnapshot: false)
+        contentOwnershipRelinquished(contentView)
     }
 
     private func makeHorizontalConstraint(

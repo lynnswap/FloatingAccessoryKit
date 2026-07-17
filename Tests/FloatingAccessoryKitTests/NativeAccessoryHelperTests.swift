@@ -14,6 +14,7 @@ struct NativeAccessoryHelperTests {
         let contentHostView = AccessoryContentHostView(
             contentView: UIView(),
             position: .center,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         let counter = NativeEnvironmentObservationCounter()
@@ -39,6 +40,7 @@ struct NativeAccessoryHelperTests {
         let contentHostView = AccessoryContentHostView(
             contentView: UIView(),
             position: .center,
+            contentOwnershipRelinquished: { _ in },
             preferredSizeDidChange: { _ in }
         )
         let rootViewController = UIViewController()

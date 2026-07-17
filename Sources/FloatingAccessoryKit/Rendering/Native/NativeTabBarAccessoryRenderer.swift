@@ -4,6 +4,7 @@ import UIKit
 @available(iOS 26.0, *)
 final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
+    var contentOwnershipRelinquishedHandler: (@MainActor (_ contentView: UIView) -> Void)?
 
     private var tabAccessory: UITabAccessory?
     private var contentHostView: AccessoryContentHostView?
@@ -188,7 +189,10 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
     ) {
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
-            position: position
+            position: position,
+            contentOwnershipRelinquished: { [weak self] contentView in
+                self?.contentOwnershipRelinquishedHandler?(contentView)
+            }
         ) { [weak self] animated in
             self?.contentSizeInvalidationHandler?(animated)
         }

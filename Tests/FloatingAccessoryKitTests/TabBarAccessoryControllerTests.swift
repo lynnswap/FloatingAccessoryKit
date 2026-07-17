@@ -316,6 +316,33 @@ struct TabBarAccessoryControllerTests {
         }
     }
 
+    @Test func installingSharedContentRelinquishesPreviousController() {
+        let firstTabBarController = makeTestTabBarController()
+        let secondTabBarController = makeTestTabBarController()
+        let firstController = firstTabBarController.floatingAccessoryController
+        let secondController = secondTabBarController.floatingAccessoryController
+        let contentView = FixedSizeView(size: CGSize(width: 44, height: 44))
+        contentView.translatesAutoresizingMaskIntoConstraints = true
+
+        firstController.setContentView(contentView, animated: false)
+        secondController.setContentView(contentView, animated: false)
+
+        #expect(firstController.contentView == nil)
+        #expect(secondController.contentView === contentView)
+        #expect(contentView.superview is AccessoryContentHostView)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == false)
+        if #available(iOS 26.0, *) {
+            #expect(firstTabBarController.bottomAccessory == nil)
+        } else {
+            #expect(overlayHostViews(in: firstTabBarController).isEmpty)
+        }
+
+        secondController.removeContent(animated: false)
+
+        #expect(contentView.superview == nil)
+        #expect(contentView.translatesAutoresizingMaskIntoConstraints == true)
+    }
+
     @Test func controllerCoordinatesTabBarHiddenChangesOnOverlayFallback() throws {
         if #available(iOS 26.0, *) {
             return
