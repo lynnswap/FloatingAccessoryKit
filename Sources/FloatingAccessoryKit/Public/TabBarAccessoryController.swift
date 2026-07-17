@@ -110,9 +110,9 @@ public final class TabBarAccessoryController {
     ///
     /// The content must produce a fitting size through its intrinsic content
     /// size, internal Auto Layout constraints, or nonzero bounds. Layout-driven
-    /// size changes are measured automatically. After changing intrinsic size
-    /// or other fitting-size inputs that do not invalidate the host's layout,
-    /// call ``invalidateContentSize(animated:)``.
+    /// size changes are measured automatically. Put explicit changes to
+    /// intrinsic size or other fitting-size inputs inside
+    /// ``performContentUpdate(animated:_:)``.
     ///
     /// Treat this view as foreground content and do not add your own capsule or
     /// material background. FloatingAccessoryKit uses the native
@@ -136,22 +136,35 @@ public final class TabBarAccessoryController {
         render(from: previousState, animated: animated)
     }
 
-    /// Invalidates the installed content view's measured size.
+    /// Performs changes to accessory content and remeasures it in the same
+    /// UIKit update transaction.
     ///
-    /// Call this operation after changing intrinsic size, bounds, or other
-    /// fitting-size inputs when that change does not invalidate the host's
-    /// layout. The content view remains installed, and its requested position
-    /// and visibility remain unchanged. This operation has no effect when no
-    /// content is installed.
+    /// Put every layout-affecting mutation in `updates`. The closure executes
+    /// synchronously, including when no content is installed. When content is
+    /// installed, its position and visibility remain unchanged.
     ///
-    /// - Parameter animated: Pass `true` to animate the size change with UIKit
-    ///   timing. The default respects Reduce Motion.
-    public func invalidateContentSize(animated: Bool = true) {
-        guard state.contentView != nil else {
+    /// - Parameters:
+    ///   - animated: Pass `true` to animate the resulting layout change with
+    ///     UIKit timing. The default respects Reduce Motion.
+    ///   - updates: Changes to the installed content's intrinsic size, bounds,
+    ///     constraints, or subview hierarchy.
+    public func performContentUpdate(
+        animated: Bool = true,
+        _ updates: @escaping @MainActor () -> Void
+    ) {
+        guard let tabBarController,
+              state.contentView != nil else {
+            updates()
             return
         }
 
-        renderer.invalidateContentSize(animated: animated)
+        layoutAnimator.perform(
+            animated: animated,
+            in: tabBarController
+        ) { _ in
+            updates()
+            self.renderer.invalidateContentSize(animated: false)
+        }
     }
 
     /// Removes the accessory content view.

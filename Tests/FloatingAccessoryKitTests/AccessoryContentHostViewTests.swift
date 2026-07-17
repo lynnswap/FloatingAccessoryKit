@@ -9,6 +9,7 @@ struct AccessoryContentHostViewTests {
         let contentView = FixedSizeView(size: CGSize(width: 84, height: 42))
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
+            position: .center,
             preferredSizeDidChange: { _ in }
         )
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
@@ -18,7 +19,7 @@ struct AccessoryContentHostViewTests {
         #expect(contentView.frame == contentHostView.bounds)
     }
 
-    @Test func requiredContentSizeRemainsCenteredWithinManagedHost() {
+    @Test func requiredContentSizeRemainsCenteredAtCenterPosition() {
         let contentView = UIView()
         NSLayoutConstraint.activate([
             contentView.widthAnchor.constraint(equalToConstant: 84),
@@ -26,6 +27,7 @@ struct AccessoryContentHostViewTests {
         ])
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
+            position: .center,
             preferredSizeDidChange: { _ in }
         )
         contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
@@ -36,13 +38,88 @@ struct AccessoryContentHostViewTests {
         #expect(contentView.center == CGPoint(x: 48, y: 24))
     }
 
+    @Test func requiredContentUsesRequestedHorizontalAnchor() {
+        let cases: [(
+            position: TabBarAccessoryController.Position,
+            expectedMinX: CGFloat
+        )] = [
+            (.leading, 0),
+            (.center, 6),
+            (.trailing, 12)
+        ]
+
+        for testCase in cases {
+            let contentView = UIView()
+            NSLayoutConstraint.activate([
+                contentView.widthAnchor.constraint(equalToConstant: 84),
+                contentView.heightAnchor.constraint(equalToConstant: 42)
+            ])
+            let contentHostView = AccessoryContentHostView(
+                contentView: contentView,
+                position: testCase.position,
+                preferredSizeDidChange: { _ in }
+            )
+            contentHostView.frame = CGRect(
+                x: 0,
+                y: 0,
+                width: 96,
+                height: 48
+            )
+
+            contentHostView.layoutIfNeeded()
+
+            #expect(contentView.frame.minX == testCase.expectedMinX)
+            #expect(contentView.frame.minY == 3)
+        }
+    }
+
+    @Test func logicalLeadingContentTracksRightToLeftLayoutDirection() {
+        let contentView = UIView()
+        NSLayoutConstraint.activate([
+            contentView.widthAnchor.constraint(equalToConstant: 84),
+            contentView.heightAnchor.constraint(equalToConstant: 42)
+        ])
+        let contentHostView = AccessoryContentHostView(
+            contentView: contentView,
+            position: .leading,
+            preferredSizeDidChange: { _ in }
+        )
+        contentHostView.semanticContentAttribute = .forceRightToLeft
+        contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
+
+        contentHostView.layoutIfNeeded()
+
+        #expect(contentView.frame.maxX == contentHostView.bounds.maxX)
+    }
+
+    @Test func positionUpdateReanchorsExistingContent() {
+        let contentView = UIView()
+        NSLayoutConstraint.activate([
+            contentView.widthAnchor.constraint(equalToConstant: 84),
+            contentView.heightAnchor.constraint(equalToConstant: 42)
+        ])
+        let contentHostView = AccessoryContentHostView(
+            contentView: contentView,
+            position: .center,
+            preferredSizeDidChange: { _ in }
+        )
+        contentHostView.frame = CGRect(x: 0, y: 0, width: 96, height: 48)
+        contentHostView.layoutIfNeeded()
+
+        contentHostView.updatePosition(.trailing)
+        contentHostView.layoutIfNeeded()
+
+        #expect(contentView.frame.maxX == contentHostView.bounds.maxX)
+    }
+
     @Test func preferredSizeChangesAnimateAfterInitialMeasurement() {
         let contentView = MutableSizeView(
             size: CGSize(width: 84, height: 42)
         )
         var animationRequests: [Bool] = []
         let contentHostView = AccessoryContentHostView(
-            contentView: contentView
+            contentView: contentView,
+            position: .center
         ) { animated in
             animationRequests.append(animated)
         }
@@ -62,7 +139,8 @@ struct AccessoryContentHostViewTests {
         )
         var animationRequests: [Bool] = []
         let contentHostView = AccessoryContentHostView(
-            contentView: contentView
+            contentView: contentView,
+            position: .center
         ) { animated in
             animationRequests.append(animated)
         }
@@ -86,7 +164,8 @@ struct AccessoryContentHostViewTests {
         ])
         var animationRequests: [Bool] = []
         let contentHostView = AccessoryContentHostView(
-            contentView: contentView
+            contentView: contentView,
+            position: .center
         ) { animated in
             animationRequests.append(animated)
         }
@@ -113,6 +192,7 @@ struct AccessoryContentHostViewTests {
         do {
             let contentHostView = AccessoryContentHostView(
                 contentView: contentView,
+                position: .center,
                 preferredSizeDidChange: { _ in }
             )
             weakContentHostView = contentHostView
@@ -128,6 +208,7 @@ struct AccessoryContentHostViewTests {
         contentView.translatesAutoresizingMaskIntoConstraints = true
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
+            position: .center,
             preferredSizeDidChange: { _ in }
         )
         let newOwner = UIView()
@@ -148,6 +229,7 @@ struct AccessoryContentHostViewTests {
         do {
             let contentHostView = AccessoryContentHostView(
                 contentView: contentView,
+                position: .center,
                 preferredSizeDidChange: { _ in }
             )
             weakContentHostView = contentHostView
@@ -164,6 +246,7 @@ struct AccessoryContentHostViewTests {
         contentView.translatesAutoresizingMaskIntoConstraints = false
         let contentHostView = AccessoryContentHostView(
             contentView: contentView,
+            position: .center,
             preferredSizeDidChange: { _ in }
         )
         let newOwner = UIView()

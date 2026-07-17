@@ -73,7 +73,7 @@ struct TabBarAccessoryControllerTests {
         #expect((reentrantAnimationDurations.last ?? 0) > 0)
     }
 
-    @Test func explicitContentSizeInvalidationPreservesAnimationIntent() {
+    @Test func contentUpdatePreservesAnimationIntent() {
         let tabBarController = makeTestTabBarController()
         let renderer = SpyAccessoryRenderer()
         let controller = TabBarAccessoryController(
@@ -86,17 +86,24 @@ struct TabBarAccessoryControllerTests {
         tabBarController.view.layoutIfNeeded()
         let baselineUpdateCount = renderer.updateCallCount
 
-        controller.invalidateContentSize(animated: false)
-        controller.invalidateContentSize(animated: true)
+        var updateAnimationDurations: [TimeInterval] = []
+        controller.performContentUpdate(animated: false) {
+            updateAnimationDurations.append(UIView.inheritedAnimationDuration)
+        }
+        controller.performContentUpdate(animated: true) {
+            updateAnimationDurations.append(UIView.inheritedAnimationDuration)
+        }
 
         #expect(renderer.updateCallCount == baselineUpdateCount + 2)
         let animationDurations = renderer.updateAnimationDurations
             .dropFirst(baselineUpdateCount)
         #expect(animationDurations.first == 0)
         #expect((animationDurations.last ?? 0) > 0)
+        #expect(updateAnimationDurations.first == 0)
+        #expect((updateAnimationDurations.last ?? 0) > 0)
     }
 
-    @Test func explicitContentSizeInvalidationRespectsReduceMotion() {
+    @Test func contentUpdateRespectsReduceMotion() {
         let tabBarController = makeTestTabBarController()
         let renderer = SpyAccessoryRenderer()
         let controller = TabBarAccessoryController(
@@ -110,15 +117,19 @@ struct TabBarAccessoryControllerTests {
         tabBarController.view.layoutIfNeeded()
         let baselineUpdateCount = renderer.updateCallCount
 
+        var didUpdate = false
         UIView.animate(withDuration: 1) {
-            controller.invalidateContentSize(animated: true)
+            controller.performContentUpdate(animated: true) {
+                didUpdate = true
+            }
         }
 
+        #expect(didUpdate)
         #expect(renderer.updateCallCount == baselineUpdateCount + 1)
         #expect(renderer.updateAnimationDurations.last == 0)
     }
 
-    @Test func contentSizeInvalidationWithoutContentDoesNotRender() {
+    @Test func contentUpdateWithoutContentExecutesWithoutRendering() {
         let tabBarController = makeTestTabBarController()
         let renderer = SpyAccessoryRenderer()
         let controller = TabBarAccessoryController(
@@ -126,10 +137,36 @@ struct TabBarAccessoryControllerTests {
             renderer: renderer
         )
 
-        controller.invalidateContentSize()
+        var didUpdate = false
+        controller.performContentUpdate {
+            didUpdate = true
+        }
 
+        #expect(didUpdate)
         #expect(renderer.renderCallCount == 0)
         #expect(renderer.updateCallCount == 0)
+    }
+
+    @Test func contentMutationPrecedesRendererInvalidation() {
+        let tabBarController = makeTestTabBarController()
+        let renderer = SpyAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+        controller.setContentView(
+            FixedSizeView(size: CGSize(width: 44, height: 44))
+        )
+        var didMutate = false
+        renderer.onInvalidateContentSize = {
+            #expect(didMutate)
+        }
+
+        controller.performContentUpdate(animated: false) {
+            didMutate = true
+        }
+
+        #expect(didMutate)
     }
 
     @Test func stateOnlyPreconfigurationDoesNotRender() {

@@ -45,6 +45,7 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
             if let contentView = state.contentView {
                 makePresentation(
                     for: contentView,
+                    position: state.position,
                     in: tabBarController
                 )
             }
@@ -182,10 +183,12 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
 
     private func makePresentation(
         for contentView: UIView,
+        position: TabBarAccessoryController.Position,
         in tabBarController: UITabBarController
     ) {
         let contentHostView = AccessoryContentHostView(
-            contentView: contentView
+            contentView: contentView,
+            position: position
         ) { [weak self] animated in
             self?.contentSizeInvalidationHandler?(animated)
         }
@@ -294,6 +297,8 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         guard contentHostView.superview === container else {
             return
         }
+
+        contentHostView.updatePosition(position)
 
         if boundContainer !== container {
             unbindContentHostConstraints()

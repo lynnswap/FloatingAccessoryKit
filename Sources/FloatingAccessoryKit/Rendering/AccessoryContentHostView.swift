@@ -4,14 +4,18 @@ import UIKit
 final class AccessoryContentHostView: UIView {
     private(set) var contentView: UIView?
     private var contentConstraints: [NSLayoutConstraint] = []
+    private var horizontalConstraint: NSLayoutConstraint?
     private var originalTranslatesAutoresizingMaskIntoConstraints: Bool?
+    private var position: TabBarAccessoryController.Position
     private let preferredSizeDidChange: @MainActor (_ animated: Bool) -> Void
     private var lastObservedFittingSize: CGSize?
 
     init(
         contentView: UIView,
+        position: TabBarAccessoryController.Position,
         preferredSizeDidChange: @escaping @MainActor (_ animated: Bool) -> Void
     ) {
+        self.position = position
         self.preferredSizeDidChange = preferredSizeDidChange
 
         super.init(frame: .zero)
@@ -55,6 +59,25 @@ final class AccessoryContentHostView: UIView {
 
         lastObservedFittingSize = measuredFittingSize(for: contentView)
         preferredSizeDidChange(animated)
+    }
+
+    func updatePosition(_ position: TabBarAccessoryController.Position) {
+        guard self.position != position,
+              let contentView else {
+            return
+        }
+
+        self.position = position
+        if let horizontalConstraint {
+            horizontalConstraint.isActive = false
+            contentConstraints.removeAll { $0 === horizontalConstraint }
+        }
+
+        let horizontalConstraint = makeHorizontalConstraint(for: contentView)
+        self.horizontalConstraint = horizontalConstraint
+        contentConstraints.append(horizontalConstraint)
+        horizontalConstraint.isActive = true
+        setNeedsLayout()
     }
 
     @discardableResult
@@ -104,13 +127,27 @@ final class AccessoryContentHostView: UIView {
         let height = contentView.heightAnchor.constraint(equalTo: heightAnchor)
         width.priority = .init(999)
         height.priority = .init(999)
+        let horizontalConstraint = makeHorizontalConstraint(for: contentView)
+        self.horizontalConstraint = horizontalConstraint
         contentConstraints = [
-            contentView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            horizontalConstraint,
             contentView.centerYAnchor.constraint(equalTo: centerYAnchor),
             width,
             height
         ]
         NSLayoutConstraint.activate(contentConstraints)
+    }
+
+    private func makeHorizontalConstraint(
+        for contentView: UIView
+    ) -> NSLayoutConstraint {
+        if position == .leading {
+            return contentView.leadingAnchor.constraint(equalTo: leadingAnchor)
+        }
+        if position == .trailing {
+            return contentView.trailingAnchor.constraint(equalTo: trailingAnchor)
+        }
+        return contentView.centerXAnchor.constraint(equalTo: centerXAnchor)
     }
 
     private func observePreferredSizeIfNeeded() {

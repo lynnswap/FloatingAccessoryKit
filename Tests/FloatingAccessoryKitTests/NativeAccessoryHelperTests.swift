@@ -13,6 +13,7 @@ struct NativeAccessoryHelperTests {
         let container = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let contentHostView = AccessoryContentHostView(
             contentView: UIView(),
+            position: .center,
             preferredSizeDidChange: { _ in }
         )
         let counter = NativeEnvironmentObservationCounter()
@@ -37,6 +38,7 @@ struct NativeAccessoryHelperTests {
         let container = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let contentHostView = AccessoryContentHostView(
             contentView: UIView(),
+            position: .center,
             preferredSizeDidChange: { _ in }
         )
         let rootViewController = UIViewController()

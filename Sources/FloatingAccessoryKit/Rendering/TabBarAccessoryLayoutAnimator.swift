@@ -40,13 +40,23 @@ struct TabBarAccessoryLayoutAnimator {
         let duration = inheritedDuration > 0
             ? inheritedDuration
             : CATransaction.animationDuration()
+        var options: UIView.AnimationOptions = [
+            .allowUserInteraction,
+            .beginFromCurrentState,
+            .curveEaseInOut
+        ]
+        if #available(iOS 26.0, *) {
+            options.insert(.flushUpdates)
+        }
         UIView.animate(
             withDuration: duration,
             delay: 0,
-            options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseInOut]
+            options: options
         ) {
             updates(true)
-            layoutView.layoutIfNeeded()
+            if #unavailable(iOS 26.0) {
+                layoutView.layoutIfNeeded()
+            }
         }
     }
 }

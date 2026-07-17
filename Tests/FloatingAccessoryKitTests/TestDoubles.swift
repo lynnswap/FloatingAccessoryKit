@@ -301,6 +301,7 @@ final class AccessoryRendererHarness {
 @MainActor
 final class SpyAccessoryRenderer: TabBarAccessoryRendering {
     var contentSizeInvalidationHandler: (@MainActor (_ animated: Bool) -> Void)?
+    var onInvalidateContentSize: (@MainActor () -> Void)?
 
     private(set) var renderCallCount = 0
     private(set) var updateCallCount = 0
@@ -308,6 +309,7 @@ final class SpyAccessoryRenderer: TabBarAccessoryRendering {
     private(set) var lastState = TabBarAccessoryState()
 
     func invalidateContentSize(animated: Bool) {
+        onInvalidateContentSize?()
         contentSizeInvalidationHandler?(animated)
     }
 

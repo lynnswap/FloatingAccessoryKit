@@ -4,6 +4,13 @@
 
 Use a `UIView` whose intrinsic content size, internal Auto Layout constraints, or nonzero bounds describe its fitting size. On iOS 26+, FloatingAccessoryKit uses UIKit's native `UITabAccessory`. On iOS 18, it keeps the accessory positioned with the tab bar.
 
+FloatingAccessoryKit does not assign a fixed minimum width to valid content.
+Standard controls such as `UIButton`, including buttons that present a
+`UIMenu`, are measured from the fitting size proposed by UIKit.
+For an image-only button, express a square shape with a proportional constraint
+such as `button.widthAnchor.constraint(equalTo: button.heightAnchor)`; UIKit's
+proposed accessory height then determines the side length without a fixed value.
+
 > [!WARNING]
 > This package relies on undocumented APIs and runtime behavior, so extra care is needed before using it in App Store-bound projects.
 
@@ -25,6 +32,7 @@ final class MainTabBarController: UITabBarController {
 
         let button = UIButton(type: .system)
         button.setImage(UIImage(systemName: "plus"), for: .normal)
+        button.widthAnchor.constraint(equalTo: button.heightAnchor).isActive = true
 
         floatingAccessoryController.setContentView(
             button,
@@ -35,21 +43,24 @@ final class MainTabBarController: UITabBarController {
 }
 ```
 
-## Content Size Updates
+## Content Updates
 
 Layout-driven content-size changes are measured automatically. If you change a
-view's intrinsic size, bounds, or another fitting-size input without causing its
-host to lay out, invalidate the accessory measurement explicitly:
+view's intrinsic size, bounds, constraints, or subview hierarchy explicitly,
+perform the changes through the accessory controller:
 
 ```swift
-button.setTitle("Updated", for: .normal)
-button.invalidateIntrinsicContentSize()
-floatingAccessoryController.invalidateContentSize()
+floatingAccessoryController.performContentUpdate {
+    button.setTitle("Updated", for: .normal)
+    button.invalidateIntrinsicContentSize()
+}
 ```
 
-The default size update animates with UIKit timing and respects Reduce Motion.
-Pass `animated: false` when the new size should be applied immediately. The
-content view remains installed, and its position and visibility are preserved.
+`performContentUpdate` runs the mutations and remeasurement in one UIKit update
+transaction. The default update animates with UIKit timing and respects Reduce
+Motion. Pass `animated: false` when the change should be applied immediately.
+The content view remains installed, and its position and visibility are
+preserved.
 
 ## Accessory Background
 
@@ -107,13 +118,14 @@ These notes apply when upgrading from `v0.2.x` or earlier to `v0.3.0`.
   ```
 
 - `position` and `isHidden` now remain unchanged when content is removed. Installing content without a `position` also preserves the current position.
-- Replace resubmitting the same view for measurement with an explicit size invalidation:
+- Replace resubmitting the same view for measurement with a content update transaction:
 
   ```swift
-  view.invalidateIntrinsicContentSize()
-  accessoryController.invalidateContentSize()
+  accessoryController.performContentUpdate {
+      view.invalidateIntrinsicContentSize()
+  }
   ```
 
-  Layout-driven changes are still measured automatically. Explicit invalidation animates by default with UIKit timing and respects Reduce Motion.
+  Put every explicit layout-affecting mutation in the closure. Layout-driven changes are still measured automatically. The transaction animates by default with UIKit timing and respects Reduce Motion.
 - `removeContent(animated:)` detaches the consumer view before returning. Any remaining removal animation uses a snapshot.
 - On iOS 18, replace direct calls to `UITabBarController.setTabBarHidden(_:animated:)` with `floatingAccessoryController.setTabBarHidden(_:animated:)` so the overlay is updated in the same operation.

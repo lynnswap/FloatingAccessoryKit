@@ -53,6 +53,7 @@ final class OverlayTabBarAccessoryRenderer: TabBarAccessoryRendering {
             if let contentView = state.contentView {
                 makePresentation(
                     for: contentView,
+                    position: state.position,
                     in: tabBarController
                 )
             }
@@ -125,6 +126,7 @@ final class OverlayTabBarAccessoryRenderer: TabBarAccessoryRendering {
             return .applied
         }
 
+        contentHostView.updatePosition(state.position)
         bindContentHostIfNeeded(contentHostView, in: tabBarController)
         hostView?.updateBackground(
             effect: barBackgroundEffect(in: tabBarController),
@@ -158,10 +160,12 @@ final class OverlayTabBarAccessoryRenderer: TabBarAccessoryRendering {
 
     private func makePresentation(
         for contentView: UIView,
+        position: TabBarAccessoryController.Position,
         in tabBarController: UITabBarController
     ) {
         let contentHostView = AccessoryContentHostView(
-            contentView: contentView
+            contentView: contentView,
+            position: position
         ) { [weak self] animated in
             self?.contentSizeInvalidationHandler?(animated)
         }

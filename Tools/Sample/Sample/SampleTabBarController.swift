@@ -475,9 +475,13 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
 
         super.init(rootViewController: sampleTabBarController)
 
-        accessoryView.onContentSizeChange = { [weak sampleTabBarController] in
-            sampleTabBarController?.floatingAccessoryController
-                .invalidateContentSize()
+        accessoryView.onContentUpdate = { [weak sampleTabBarController] updates in
+            guard let sampleTabBarController else {
+                updates()
+                return
+            }
+            sampleTabBarController.floatingAccessoryController
+                .performContentUpdate(updates)
         }
 
         configureNavigationItem()
@@ -601,10 +605,12 @@ private func makeTabBarVisibilityControl(_ visibilitySwitch: UISwitch) -> UIView
 }
 
 private final class SampleAccessoryView: UIStackView {
-    private static let minimumButtonLength: CGFloat = 44
+    typealias ContentUpdateHandler = @MainActor (
+        _ updates: @escaping @MainActor () -> Void
+    ) -> Void
 
     private let minusButtonStack = UIStackView()
-    var onContentSizeChange: (@MainActor () -> Void)?
+    var onContentUpdate: ContentUpdateHandler?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -624,22 +630,6 @@ private final class SampleAccessoryView: UIStackView {
     @available(*, unavailable)
     required init(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    override var intrinsicContentSize: CGSize {
-        let visibleButtonCount = minusButtonStack.arrangedSubviews.filter { !$0.isHidden }.count + 1
-        guard visibleButtonCount > 0 else {
-            return .zero
-        }
-
-        let side = max(bounds.height, Self.minimumButtonLength)
-        let width = CGFloat(visibleButtonCount) * side + CGFloat(visibleButtonCount - 1) * spacing
-
-        return CGSize(width: width, height: side)
-    }
-
-    override func sizeThatFits(_ size: CGSize) -> CGSize {
-        intrinsicContentSize
     }
 
     private func makeAddButton() -> UIButton {
@@ -672,36 +662,38 @@ private final class SampleAccessoryView: UIStackView {
     private func addRemoveButton() {
         let button = makeRemoveButton()
         button.alpha = 0
-        minusButtonStack.insertArrangedSubview(button, at: 0)
-        minusButtonStack.isHidden = false
-        notifyContentSizeDidChange()
-
-        UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseInOut]) {
+        performContentUpdate {
+            self.minusButtonStack.insertArrangedSubview(button, at: 0)
+            self.minusButtonStack.isHidden = false
+            self.invalidateContentSize()
             button.alpha = 1
-            self.layoutIfNeeded()
         }
     }
 
     private func removeRemoveButton(_ button: UIButton) {
-        minusButtonStack.removeArrangedSubview(button)
-        notifyContentSizeDidChange()
-
-        UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseInOut]) {
-            button.alpha = 0
-            self.layoutIfNeeded()
-        } completion: { _ in
+        performContentUpdate {
+            self.minusButtonStack.removeArrangedSubview(button)
             button.removeFromSuperview()
             if self.minusButtonStack.arrangedSubviews.isEmpty {
                 self.minusButtonStack.isHidden = true
-                self.notifyContentSizeDidChange()
             }
+            self.invalidateContentSize()
         }
     }
 
-    private func notifyContentSizeDidChange() {
+    private func performContentUpdate(
+        _ updates: @escaping @MainActor () -> Void
+    ) {
+        if let onContentUpdate {
+            onContentUpdate(updates)
+        } else {
+            updates()
+        }
+    }
+
+    private func invalidateContentSize() {
         minusButtonStack.invalidateIntrinsicContentSize()
         invalidateIntrinsicContentSize()
-        onContentSizeChange?()
     }
 }
 
