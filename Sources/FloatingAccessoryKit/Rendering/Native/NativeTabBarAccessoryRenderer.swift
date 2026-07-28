@@ -349,9 +349,6 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
             installedConstraints = [
                 width,
                 height,
-                contentHostView.centerXAnchor.constraint(
-                    equalTo: container.centerXAnchor
-                ),
                 contentHostView.centerYAnchor.constraint(
                     equalTo: container.centerYAnchor
                 )

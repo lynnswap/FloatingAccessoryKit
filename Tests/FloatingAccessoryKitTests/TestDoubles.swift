@@ -213,9 +213,11 @@ final class AccessoryLayoutHostView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func bind(_ container: UIView) {
+    func bind(_ container: UIView, contentView: UIView) {
         accessoryContainer = container
         addSubview(container)
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(contentView)
     }
 
     override func layoutSubviews() {

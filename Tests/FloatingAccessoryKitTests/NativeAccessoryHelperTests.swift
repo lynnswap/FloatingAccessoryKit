@@ -154,7 +154,7 @@ struct NativeAccessoryHelperTests {
         let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -184,7 +184,7 @@ struct NativeAccessoryHelperTests {
         let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let container = AccessoryContainerView(frame: .zero)
         let contentView = AccessoryContentView()
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -214,7 +214,7 @@ struct NativeAccessoryHelperTests {
         let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -251,7 +251,7 @@ struct NativeAccessoryHelperTests {
         let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -281,7 +281,7 @@ struct NativeAccessoryHelperTests {
         let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -318,7 +318,7 @@ struct NativeAccessoryHelperTests {
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
         host.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -340,7 +340,7 @@ struct NativeAccessoryHelperTests {
         let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -366,7 +366,7 @@ struct NativeAccessoryHelperTests {
         let host = AccessoryLayoutHostView(accessoryFrame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -412,7 +412,7 @@ struct NativeAccessoryHelperTests {
         let contentView = AccessoryContentView()
         host.semanticContentAttribute = .forceRightToLeft
         container.semanticContentAttribute = .forceRightToLeft
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -449,7 +449,7 @@ struct NativeAccessoryHelperTests {
         let container = AccessoryContainerView(frame: host.accessoryFrame)
         let contentView = AccessoryContentView()
         host.frame = CGRect(x: 0, y: 0, width: 300, height: 100)
-        host.bind(container)
+        host.bind(container, contentView: contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
@@ -471,6 +471,111 @@ struct NativeAccessoryHelperTests {
         #expect(container.frame == CGRect(x: 128, y: 0, width: 44, height: 48))
     }
 
+    @Test func sizingAlignsContentWhenHostedElementFrameCapabilityIsUnavailable() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let container = UIView(
+            frame: CGRect(x: 0, y: 0, width: 100, height: 48)
+        )
+        let contentView = AccessoryContentView()
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(contentView)
+        NSLayoutConstraint.activate([
+            contentView.widthAnchor.constraint(equalToConstant: 44),
+            contentView.heightAnchor.constraint(equalToConstant: 44),
+            contentView.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
+
+        NativeAccessoryContainerLayout.register(
+            container: container,
+            contentView: contentView,
+            position: .leading
+        )
+        defer {
+            NativeAccessoryContainerLayout.unregister(container: container)
+        }
+
+        container.layoutIfNeeded()
+        #expect(contentView.frame.minX == 0)
+
+        NativeAccessoryContainerLayout.update(
+            container: container,
+            contentWidth: 44,
+            position: .center
+        )
+        container.layoutIfNeeded()
+        #expect(contentView.frame.minX == 28)
+
+        NativeAccessoryContainerLayout.update(
+            container: container,
+            contentWidth: 44,
+            position: .trailing
+        )
+        container.layoutIfNeeded()
+        #expect(contentView.frame.minX == 56)
+    }
+
+    @Test func unregisteringContentAlignmentRemovesItsConstraint() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let container = UIView(
+            frame: CGRect(x: 0, y: 0, width: 100, height: 48)
+        )
+        let contentView = AccessoryContentView()
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(contentView)
+
+        NativeAccessoryContainerLayout.register(
+            container: container,
+            contentView: contentView,
+            position: .trailing
+        )
+        NativeAccessoryContainerLayout.unregister(container: container)
+
+        #expect(
+            container.constraints.contains { constraint in
+                constraint.identifier
+                    == "FloatingAccessoryKit.contentHorizontalPlacement"
+                    && constraint.isActive
+            } == false
+        )
+    }
+
+    @Test func contentAlignmentUsesContainerWidthBeforeSuperviewWidth() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let parent = UIView(
+            frame: CGRect(x: 0, y: 0, width: 300, height: 100)
+        )
+        let container = UIView(
+            frame: CGRect(x: 20, y: 0, width: 100, height: 48)
+        )
+        let contentView = AccessoryContentView()
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        parent.addSubview(container)
+        container.addSubview(contentView)
+
+        NativeAccessoryContainerLayout.register(
+            container: container,
+            contentView: contentView,
+            position: .trailing
+        )
+        defer {
+            NativeAccessoryContainerLayout.unregister(container: container)
+        }
+
+        #expect(
+            NativeAccessoryContainerLayout.availableWidth(for: container)
+                == 100
+        )
+    }
+
     @Test func unregisteredSizingKeepsDefaultFrameUpdates() {
         guard #available(iOS 26.0, *) else {
             return
@@ -478,6 +583,8 @@ struct NativeAccessoryHelperTests {
 
         let container = AccessoryContainerView(frame: CGRect(x: 0, y: 0, width: 100, height: 48))
         let contentView = UIView()
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(contentView)
 
         NativeAccessoryContainerLayout.register(
             container: container,
