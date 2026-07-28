@@ -113,6 +113,39 @@ struct NativeTabBarAccessoryRendererTests {
         #expect(controller.contentView === contentView)
     }
 
+    @Test func changingPositionMovesNativeContentBetweenLogicalEdges() async throws {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let tabBarController = makeTestTabBarController()
+        let window = UIWindow(frame: tabBarController.view.bounds)
+        window.rootViewController = tabBarController
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let controller = tabBarController.floatingAccessoryController
+        let contentView = FixedSizeView(size: CGSize(width: 88, height: 44))
+
+        controller.setContentView(contentView, position: .trailing)
+        await completeNativeAttachment(in: tabBarController)
+        let contentHost = try #require(
+            contentView.superview as? AccessoryContentHostView
+        )
+        let trailingFrame = contentHost.convert(contentHost.bounds, to: window)
+
+        controller.setPosition(.center, animated: false)
+        tabBarController.view.layoutIfNeeded()
+        let centerFrame = contentHost.convert(contentHost.bounds, to: window)
+
+        controller.setPosition(.leading, animated: false)
+        tabBarController.view.layoutIfNeeded()
+        let leadingFrame = contentHost.convert(contentHost.bounds, to: window)
+
+        #expect(leadingFrame.midX < centerFrame.midX)
+        #expect(centerFrame.midX < trailingFrame.midX)
+        #expect(abs(centerFrame.midX - window.bounds.midX) <= 1)
+    }
+
     @Test func hidingAndShowingReusesOwnedNativeAccessory() {
         guard #available(iOS 26.0, *) else {
             return
@@ -175,14 +208,15 @@ struct NativeTabBarAccessoryRendererTests {
             contentView.superview as? AccessoryContentHostView
         )
         let container = try #require(contentHost.superview)
-        let managedCenteringConstraint = try #require(
+        let managedHorizontalConstraint = try #require(
             container.constraints.first { constraint in
                 constraint.isActive
                     && constraint.firstItem === contentHost
-                    && constraint.firstAttribute == .centerX
+                    && constraint.identifier
+                        == "FloatingAccessoryKit.contentHorizontalPlacement"
             }
         )
-        #expect(managedCenteringConstraint.secondItem === container)
+        #expect(managedHorizontalConstraint.secondItem === container)
         #expect(try managedSize(of: contentHost).width > 0)
     }
 
@@ -385,6 +419,19 @@ struct NativeTabBarAccessoryRendererTests {
             identifier: "FloatingAccessoryKit.contentHeight"
         )
         return CGSize(width: width.constant, height: height.constant)
+    }
+
+    private func completeNativeAttachment(
+        in tabBarController: UITabBarController
+    ) async {
+        tabBarController.view.setNeedsLayout()
+        tabBarController.view.layoutIfNeeded()
+        await withCheckedContinuation { continuation in
+            RunLoop.main.perform(inModes: [.common]) {
+                continuation.resume()
+            }
+        }
+        tabBarController.view.layoutIfNeeded()
     }
 
     private func managedConstraint(
