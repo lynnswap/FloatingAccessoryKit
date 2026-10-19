@@ -9,15 +9,17 @@ import shlex
 import subprocess
 
 
-def simctl(*arguments, timeout=60):
+def simctl(*arguments, timeout=60, capture=False):
     command = ["xcrun", "simctl", *arguments]
     print(datetime.datetime.now(datetime.timezone.utc).isoformat(), shlex.join(command), flush=True)
-    return subprocess.check_output(command, text=True, timeout=timeout)
+    if capture:
+        return subprocess.check_output(command, text=True, timeout=timeout)
+    subprocess.run(command, check=True, timeout=timeout)
 
 
 def prepare(state_path, destination, environment_path):
     fields = dict(component.split("=", 1) for component in destination.split(","))
-    devices = json.loads(simctl("list", "devices", "available", "--json"))["devices"]
+    devices = json.loads(simctl("list", "devices", "available", "--json", capture=True))["devices"]
     matches = []
     for runtime, entries in devices.items():
         if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
@@ -34,7 +36,7 @@ def prepare(state_path, destination, environment_path):
                 continue
             matches.append((tuple(map(int, version.split("."))), runtime, device))
     _, runtime, device = max(matches, key=lambda match: match[0])
-    udid = simctl("create", "CI test simulator", device["deviceTypeIdentifier"], runtime).strip()
+    udid = simctl("create", "CI test simulator", device["deviceTypeIdentifier"], runtime, capture=True).strip()
     # Save ownership before boot so failed builds and cancellation can still clean up.
     state_path.write_text(json.dumps({"udid": udid}) + "\n")
     selected = "platform=iOS Simulator,id=" + udid
