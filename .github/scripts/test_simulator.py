@@ -1,6 +1,8 @@
 import json
+import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -59,3 +61,19 @@ class SimulatorTests(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 simulator.cleanup(self.state)
         self.assertTrue(self.state.exists())
+
+    def test_action_output_survives_failure(self):
+        fake_bin = Path(self.temporary.name) / "bin"
+        fake_bin.mkdir()
+        fake_xcrun = fake_bin / "xcrun"
+        fake_xcrun.write_text("#!/bin/sh\nprintf 'Waiting on DataMigration\\n'\nexit 7\n")
+        fake_xcrun.chmod(0o755)
+        result = subprocess.run(
+            [sys.executable, "-c", "import simulator; simulator.simctl('bootstatus', 'owned', '-b')"],
+            cwd=Path(__file__).resolve().parent,
+            env=dict(os.environ, PATH=str(fake_bin) + os.pathsep + os.environ["PATH"]),
+            capture_output=True, text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Waiting on DataMigration", result.stdout)
+        self.assertIn("CalledProcessError", result.stderr)
