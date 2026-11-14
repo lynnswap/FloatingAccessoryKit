@@ -55,6 +55,7 @@ public final class TabBarAccessoryController {
     private var state = TabBarAccessoryState()
     private let renderer: any TabBarAccessoryRendering
     private var hostObservation: TabBarAccessoryHostObservation?
+    private var itemsView: AccessoryItemsView?
     private let layoutAnimator: TabBarAccessoryLayoutAnimator
     private var isRendering = false
     private var pendingRender: PendingRender?
@@ -97,10 +98,59 @@ public final class TabBarAccessoryController {
         }
     }
 
-    /// The currently installed content view, or `nil` when no content is
-    /// installed.
+    /// The content view installed with
+    /// ``setContentView(_:position:animated:)``, or `nil` when no content view
+    /// is installed or the accessory shows ``items``.
     public var contentView: UIView? {
-        state.contentView
+        state.contentView === itemsView ? nil : state.contentView
+    }
+
+    /// The items installed with ``setItems(_:position:animated:)``.
+    public var items: [UIBarButtonItem] {
+        itemsView?.items ?? []
+    }
+
+    /// Shows bar button items as the accessory content.
+    ///
+    /// FloatingAccessoryKit creates a button for each item and lays the buttons
+    /// out along the tab bar: side by side for a horizontal tab bar, and
+    /// stacked in the tab bar's column for a vertical one when
+    /// ``followsVerticalTabBar`` is `true`. Passing a different array animates
+    /// arriving and departing items together with the accessory's size.
+    ///
+    /// Each button follows its item's image, title, primary action or
+    /// target-action, menu, enabled state, hidden state, tint color, and
+    /// accessibility label and identifier. An item with a custom view shows
+    /// that view. Space items are not supported.
+    ///
+    /// This operation replaces a content view installed with
+    /// ``setContentView(_:position:animated:)``. Passing an empty array removes
+    /// the accessory content.
+    ///
+    /// - Parameters:
+    ///   - items: The items to show, in layout order.
+    ///   - position: A new placement, or `nil` to preserve the current one.
+    ///   - animated: Pass `true` to animate the change.
+    public func setItems(
+        _ items: [UIBarButtonItem],
+        position: Position? = nil,
+        animated: Bool = false
+    ) {
+        if let position {
+            setPosition(position, animated: animated)
+        }
+
+        guard !items.isEmpty else {
+            if let itemsView {
+                self.itemsView = nil
+                removeInstalledContent(itemsView, animated: animated)
+            }
+            return
+        }
+
+        let itemsView = self.itemsView ?? makeItemsView()
+        self.itemsView = itemsView
+        applyItems(items, to: itemsView, animated: animated)
     }
 
     /// The requested horizontal placement.
@@ -146,6 +196,9 @@ public final class TabBarAccessoryController {
         position: Position? = nil,
         animated: Bool = false
     ) {
+        if contentView !== itemsView {
+            itemsView = nil
+        }
         let previousState = state
         state.contentView = contentView
         if let position {
@@ -170,19 +223,85 @@ public final class TabBarAccessoryController {
         animated: Bool = true,
         _ updates: @escaping @MainActor () -> Void
     ) {
+        performContentUpdate(animated: animated, updates, completion: nil)
+    }
+
+    private func performContentUpdate(
+        animated: Bool,
+        _ updates: @escaping @MainActor () -> Void,
+        completion: (@MainActor () -> Void)?
+    ) {
         guard let tabBarController,
               state.contentView != nil else {
             updates()
+            completion?()
             return
         }
 
         layoutAnimator.perform(
             animated: animated,
-            in: tabBarController
-        ) { _ in
-            updates()
-            self.renderer.invalidateContentSize(animated: false)
+            in: tabBarController,
+            updates: { _ in
+                updates()
+                self.renderer.invalidateContentSize(animated: false)
+            },
+            completion: completion
+        )
+    }
+
+    private func makeItemsView() -> AccessoryItemsView {
+        let itemsView = AccessoryItemsView()
+        itemsView.visibleItemsDidChange = { [weak self, weak itemsView] in
+            guard let self,
+                  let itemsView,
+                  self.itemsView === itemsView else {
+                return
+            }
+            self.applyItems(itemsView.items, to: itemsView, animated: true)
         }
+        return itemsView
+    }
+
+    private func applyItems(
+        _ items: [UIBarButtonItem],
+        to itemsView: AccessoryItemsView,
+        animated: Bool
+    ) {
+        guard state.contentView === itemsView else {
+            itemsView.setItems(items)
+            if itemsView.hasVisibleItems {
+                setContentView(itemsView, animated: animated)
+            }
+            return
+        }
+
+        let transition = itemsView.prepareTransition(to: items)
+        guard itemsView.hasVisibleItems else {
+            // Every item is hidden: keep observing the items, but show no
+            // accessory until one becomes visible again.
+            removeInstalledContent(itemsView, animated: animated)
+            transition.updates()
+            transition.completion()
+            return
+        }
+        performContentUpdate(
+            animated: animated,
+            transition.updates,
+            completion: transition.completion
+        )
+    }
+
+    private func removeInstalledContent(
+        _ contentView: UIView,
+        animated: Bool
+    ) {
+        guard state.contentView === contentView else {
+            return
+        }
+
+        let previousState = state
+        state.contentView = nil
+        render(from: previousState, animated: animated)
     }
 
     /// Removes the accessory content view.
@@ -194,6 +313,7 @@ public final class TabBarAccessoryController {
     /// - Parameter animated: Pass `true` to animate a snapshot of the removed
     ///   presentation when one is available.
     public func removeContent(animated: Bool = false) {
+        itemsView = nil
         guard state.contentView != nil else {
             return
         }

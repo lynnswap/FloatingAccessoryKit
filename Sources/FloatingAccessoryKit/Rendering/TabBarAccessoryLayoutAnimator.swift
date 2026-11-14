@@ -15,7 +15,8 @@ struct TabBarAccessoryLayoutAnimator {
     func perform(
         animated: Bool,
         in tabBarController: UITabBarController,
-        updates: @escaping (_ animated: Bool) -> Void
+        updates: @escaping (_ animated: Bool) -> Void,
+        completion: (@MainActor () -> Void)? = nil
     ) {
         let layoutView = tabBarController.view!
         let reduceMotionEnabled = isReduceMotionEnabled()
@@ -32,6 +33,7 @@ struct TabBarAccessoryLayoutAnimator {
             } else {
                 applyUpdates()
             }
+            completion?()
             return
         }
 
@@ -57,6 +59,8 @@ struct TabBarAccessoryLayoutAnimator {
             if #unavailable(iOS 26.0) {
                 layoutView.layoutIfNeeded()
             }
+        } completion: { _ in
+            completion?()
         }
     }
 }

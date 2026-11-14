@@ -14,6 +14,7 @@ final class SampleTabBarController: UITabBarController {
     }
 
     private var pendingAccessoryConfiguration: AccessoryConfiguration?
+    private var accessoryItems: SampleAccessoryItems?
     private let usesUITabs: Bool
     private var requestedTabBarHidden = false
 
@@ -31,12 +32,15 @@ final class SampleTabBarController: UITabBarController {
     }
 
     convenience init(
-        accessoryView: UIView,
+        accessoryItems: SampleAccessoryItems,
         accessoryPosition: TabBarAccessoryController.Position = .trailing,
         usesUITabs: Bool = false
     ) {
         self.init(
-            accessoryConfiguration: .uiView(accessoryView, position: accessoryPosition),
+            accessoryConfiguration: AccessoryConfiguration(
+                items: accessoryItems,
+                position: accessoryPosition
+            ),
             usesUITabs: usesUITabs
         )
     }
@@ -168,30 +172,27 @@ final class SampleTabBarController: UITabBarController {
         }
 
         pendingAccessoryConfiguration = nil
-        accessoryController.setContentView(
-            configuration.view,
-            position: configuration.position,
-            animated: configuration.animated
+        let accessoryItems = configuration.items
+        self.accessoryItems = accessoryItems
+        accessoryItems.onChange = { [weak self] in
+            guard let self, let accessoryItems = self.accessoryItems else {
+                return
+            }
+            self.accessoryController.setItems(
+                accessoryItems.items,
+                animated: true
+            )
+        }
+        accessoryController.setItems(
+            accessoryItems.items,
+            position: configuration.position
         )
     }
 }
 
 private struct AccessoryConfiguration {
-    let view: UIView
+    let items: SampleAccessoryItems
     let position: TabBarAccessoryController.Position
-    let animated: Bool
-
-    static func uiView(
-        _ view: UIView,
-        position: TabBarAccessoryController.Position,
-        animated: Bool = false
-    ) -> Self {
-        AccessoryConfiguration(
-            view: view,
-            position: position,
-            animated: animated
-        )
-    }
 }
 
 private final class SampleScrollViewController: UIViewController, UIScrollViewDelegate {
@@ -449,7 +450,6 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
     )
     private let tabBarVisibilitySwitch = UISwitch()
     private let accessoryVisibilitySwitch = UISwitch()
-    private let accessoryView: SampleAccessoryView
     private let sampleTabBarController: SampleTabBarController
 
     private let initialAccessoryPosition: TabBarAccessoryController.Position
@@ -462,27 +462,16 @@ final class SampleTabBarAccessoryDemoNavigationController: UINavigationControlle
         isAccessoryHidden: Bool = false,
         usesUITabs: Bool = false
     ) {
-        let accessoryView = SampleAccessoryView()
         initialAccessoryPosition = accessoryPosition
         initialAccessoryHidden = isAccessoryHidden
         self.isTabBarHidden = isTabBarHidden
-        self.accessoryView = accessoryView
         self.sampleTabBarController = SampleTabBarController(
-            accessoryView: accessoryView,
+            accessoryItems: SampleAccessoryItems(),
             accessoryPosition: accessoryPosition,
             usesUITabs: usesUITabs
         )
 
         super.init(rootViewController: sampleTabBarController)
-
-        accessoryView.onContentUpdate = { [weak sampleTabBarController] updates in
-            guard let sampleTabBarController else {
-                updates()
-                return
-            }
-            sampleTabBarController.floatingAccessoryController
-                .performContentUpdate(updates)
-        }
 
         configureNavigationItem()
         sampleTabBarController.onTabBarVisibilityChange = { [weak self] hidden in
@@ -604,129 +593,36 @@ private func makeTabBarVisibilityControl(_ visibilitySwitch: UISwitch) -> UIView
     return stackView
 }
 
-private final class SampleAccessoryView: UIStackView {
-    typealias ContentUpdateHandler = @MainActor (
-        _ updates: @escaping @MainActor () -> Void
-    ) -> Void
+/// The bar button items the sample shows in the accessory.
+@MainActor
+final class SampleAccessoryItems {
+    private(set) var items: [UIBarButtonItem] = []
+    var onChange: (@MainActor () -> Void)?
 
-    private let minusButtonStack = UIStackView()
-    var onContentUpdate: ContentUpdateHandler?
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-
-        axis = .horizontal
-        spacing = 0
-        distribution = .fill
-
-        minusButtonStack.axis = .horizontal
-        minusButtonStack.spacing = 0
-        minusButtonStack.distribution = .fill
-        minusButtonStack.isHidden = true
-        addArrangedSubview(minusButtonStack)
-        addArrangedSubview(makeAddButton())
-
-        registerForTraitChanges([FloatingAccessoryAxisTrait.self]) {
-            (view: SampleAccessoryView, _: UITraitCollection) in
-            view.axis = view.traitCollection.floatingAccessoryAxis
-            view.minusButtonStack.axis = view.axis
-            view.invalidateContentSize()
-        }
-    }
-
-    @available(*, unavailable)
-    required init(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func makeAddButton() -> UIButton {
-        makeAccessoryButton(
-            systemImageName: "plus",
-            accessibilityLabel: "Add"
-        ) { [weak self] in
-            self?.addRemoveButton()
-        }
-    }
-
-    private func makeRemoveButton() -> UIButton {
-        let button = makeAccessoryButton(
-            systemImageName: "minus",
-            accessibilityLabel: "Remove"
-        )
-        button.addAction(
-            UIAction { [weak self, weak button] _ in
-                guard let button else {
-                    return
-                }
-
-                self?.removeRemoveButton(button)
-            },
-            for: .touchUpInside
-        )
-        return button
-    }
-
-    private func addRemoveButton() {
-        let button = makeRemoveButton()
-        button.alpha = 0
-        performContentUpdate {
-            self.minusButtonStack.insertArrangedSubview(button, at: 0)
-            self.minusButtonStack.isHidden = false
-            self.invalidateContentSize()
-            button.alpha = 1
-        }
-    }
-
-    private func removeRemoveButton(_ button: UIButton) {
-        performContentUpdate {
-            self.minusButtonStack.removeArrangedSubview(button)
-            button.removeFromSuperview()
-            if self.minusButtonStack.arrangedSubviews.isEmpty {
-                self.minusButtonStack.isHidden = true
+    init() {
+        let addItem = UIBarButtonItem(
+            image: UIImage(systemName: "plus"),
+            primaryAction: UIAction { [weak self] _ in
+                self?.addRemoveItem()
             }
-            self.invalidateContentSize()
-        }
-    }
-
-    private func performContentUpdate(
-        _ updates: @escaping @MainActor () -> Void
-    ) {
-        if let onContentUpdate {
-            onContentUpdate(updates)
-        } else {
-            updates()
-        }
-    }
-
-    private func invalidateContentSize() {
-        minusButtonStack.invalidateIntrinsicContentSize()
-        invalidateIntrinsicContentSize()
-    }
-}
-
-private func makeAccessoryButton(
-    systemImageName: String,
-    accessibilityLabel: String,
-    action: (@MainActor () -> Void)? = nil
-) -> UIButton {
-    let button = UIButton(type: .system)
-    var configuration = UIButton.Configuration.plain()
-    configuration.image = UIImage(systemName: systemImageName)
-    configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(scale: .medium)
-    button.configuration = configuration
-    button.accessibilityLabel = accessibilityLabel
-    button.contentHorizontalAlignment = .center
-    button.contentVerticalAlignment = .center
-    button.widthAnchor.constraint(equalTo: button.heightAnchor).isActive = true
-    if let action {
-        button.addAction(
-            UIAction { _ in
-                action()
-            },
-            for: .touchUpInside
         )
+        addItem.accessibilityLabel = "Add"
+        items = [addItem]
     }
-    return button
+
+    private func addRemoveItem() {
+        let removeItem = UIBarButtonItem(image: UIImage(systemName: "minus"))
+        removeItem.accessibilityLabel = "Remove"
+        removeItem.primaryAction = UIAction { [weak self, weak removeItem] _ in
+            guard let self, let removeItem else {
+                return
+            }
+            self.items.removeAll { $0 === removeItem }
+            self.onChange?()
+        }
+        items.insert(removeItem, at: 0)
+        onChange?()
+    }
 }
 
 #if DEBUG
