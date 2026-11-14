@@ -5,6 +5,7 @@
 //  Created by Kazuki Nakashima on 2026/05/06.
 //
 
+import FloatingAccessoryKit
 import UIKit
 
 @main
@@ -13,7 +14,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        true
+        // Launch with `-UseTabAccessory YES` to compare against the
+        // UITabAccessory presentation.
+        TabBarAccessoryController.attachesToTabBarGlassGroup =
+            !UserDefaults.standard.bool(forKey: "UseTabAccessory")
+        return true
     }
 
     func application(

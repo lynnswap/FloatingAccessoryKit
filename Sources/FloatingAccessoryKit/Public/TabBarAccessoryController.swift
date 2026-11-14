@@ -40,6 +40,18 @@ public final class TabBarAccessoryController {
         }
     }
 
+    /// A Boolean value that selects the experimental presentation that joins
+    /// the tab bar's glass group on iOS 26 and later.
+    ///
+    /// When `true`, controllers created afterward place the accessory in their
+    /// own glass view beside the tab bar instead of using `UITabAccessory`.
+    /// The accessory follows a vertical tab bar into its column and reports the
+    /// layout direction through
+    /// ``UIKit/UITraitCollection/floatingAccessoryAxis``. Set this value before
+    /// the first access to
+    /// ``UIKit/UITabBarController/floatingAccessoryController``.
+    public static var attachesToTabBarGlassGroup = false
+
     private weak var tabBarController: UITabBarController?
     private var state = TabBarAccessoryState()
     private let renderer: any TabBarAccessoryRendering
@@ -69,7 +81,11 @@ public final class TabBarAccessoryController {
         if let renderer {
             self.renderer = renderer
         } else if #available(iOS 26.0, *) {
-            self.renderer = NativeTabBarAccessoryRenderer()
+            self.renderer = Self.attachesToTabBarGlassGroup
+                ? GlassGroupTabBarAccessoryRenderer(
+                    isReduceMotionEnabled: isReduceMotionEnabled
+                )
+                : NativeTabBarAccessoryRenderer()
         } else {
             self.renderer = OverlayTabBarAccessoryRenderer()
         }

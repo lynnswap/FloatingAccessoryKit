@@ -625,6 +625,13 @@ private final class SampleAccessoryView: UIStackView {
         minusButtonStack.isHidden = true
         addArrangedSubview(minusButtonStack)
         addArrangedSubview(makeAddButton())
+
+        registerForTraitChanges([FloatingAccessoryAxisTrait.self]) {
+            (view: SampleAccessoryView, _: UITraitCollection) in
+            view.axis = view.traitCollection.floatingAccessoryAxis
+            view.minusButtonStack.axis = view.axis
+            view.invalidateContentSize()
+        }
     }
 
     @available(*, unavailable)
