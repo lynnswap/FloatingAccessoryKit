@@ -14,10 +14,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        // Launch with `-UseTabAccessory YES` to compare against the
-        // UITabAccessory presentation.
-        TabBarAccessoryController.attachesToTabBarGlassGroup =
-            !UserDefaults.standard.bool(forKey: "UseTabAccessory")
+        TabBarAccessoryController.followsVerticalTabBar = true
         return true
     }
 
