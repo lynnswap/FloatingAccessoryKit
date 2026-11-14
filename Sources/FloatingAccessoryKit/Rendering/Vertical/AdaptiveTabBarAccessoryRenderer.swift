@@ -48,6 +48,10 @@ final class AdaptiveTabBarAccessoryRenderer: TabBarAccessoryRendering {
         activeRenderer.invalidateContentSize(animated: animated)
     }
 
+    var glassFollowingView: UIView? {
+        activeRenderer.glassFollowingView
+    }
+
     func render(
         from previousState: TabBarAccessoryState,
         to state: TabBarAccessoryState,

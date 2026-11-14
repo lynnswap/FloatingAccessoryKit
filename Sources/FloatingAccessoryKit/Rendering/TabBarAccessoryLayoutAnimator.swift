@@ -63,4 +63,26 @@ struct TabBarAccessoryLayoutAnimator {
             completion?()
         }
     }
+
+    /// Briefly scales `view` up and back, the way system bars swell while
+    /// their items change.
+    func performBulge(on view: UIView) {
+        guard UIView.areAnimationsEnabled,
+              !isReduceMotionEnabled() else {
+            return
+        }
+
+        UIView.animateKeyframes(
+            withDuration: 0.5,
+            delay: 0,
+            options: [.allowUserInteraction, .beginFromCurrentState]
+        ) {
+            UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.4) {
+                view.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+            }
+            UIView.addKeyframe(withRelativeStartTime: 0.4, relativeDuration: 0.6) {
+                view.transform = .identity
+            }
+        }
+    }
 }

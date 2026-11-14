@@ -30,4 +30,12 @@ protocol TabBarAccessoryRendering: AnyObject {
         _ state: TabBarAccessoryState,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult
+
+    /// The view whose scale carries the accessory's glass with it, or `nil`
+    /// when the presentation has none.
+    var glassFollowingView: UIView? { get }
+}
+
+extension TabBarAccessoryRendering {
+    var glassFollowingView: UIView? { nil }
 }

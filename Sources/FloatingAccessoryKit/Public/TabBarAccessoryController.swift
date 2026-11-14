@@ -289,6 +289,9 @@ public final class TabBarAccessoryController {
             transition.updates,
             completion: transition.completion
         )
+        if animated, let glassFollowingView = renderer.glassFollowingView {
+            layoutAnimator.performBulge(on: glassFollowingView)
+        }
     }
 
     private func removeInstalledContent(

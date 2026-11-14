@@ -34,6 +34,10 @@ final class VerticalTabBarAccessoryRenderer: TabBarAccessoryRendering {
         contentHostView?.invalidatePreferredSize(animated: animated)
     }
 
+    var glassFollowingView: UIView? {
+        glassView
+    }
+
     func render(
         from previousState: TabBarAccessoryState,
         to state: TabBarAccessoryState,
