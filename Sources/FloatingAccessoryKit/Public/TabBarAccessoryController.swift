@@ -238,21 +238,24 @@ public final class TabBarAccessoryController {
         return Self.navigationController(in: selectedViewController)?.topViewController
     }
 
-    /// The navigation controller that is the view controller itself or the
-    /// first one among its descendants. A tab may wrap its navigation
-    /// controller in a container of its own.
+    /// The navigation controller that is the view controller itself or one
+    /// among its descendants. A tab may wrap its navigation controller in a
+    /// container of its own; a container with several prefers the one on
+    /// screen.
     private static func navigationController(
         in viewController: UIViewController
     ) -> UINavigationController? {
+        let candidates = navigationControllers(in: viewController)
+        return candidates.first { $0.viewIfLoaded?.window != nil } ?? candidates.first
+    }
+
+    private static func navigationControllers(
+        in viewController: UIViewController
+    ) -> [UINavigationController] {
         if let navigationController = viewController as? UINavigationController {
-            return navigationController
+            return [navigationController]
         }
-        for child in viewController.children {
-            if let navigationController = navigationController(in: child) {
-                return navigationController
-            }
-        }
-        return nil
+        return viewController.children.flatMap(navigationControllers(in:))
     }
 
     /// The requested horizontal placement.
