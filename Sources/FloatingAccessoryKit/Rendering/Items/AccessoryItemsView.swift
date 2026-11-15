@@ -268,7 +268,8 @@ private final class AccessoryItemSlotView: UIView {
     ///
     /// A custom view laid out by its frame has no intrinsic size or size
     /// constraints, so it measures zero once its autoresizing mask no longer
-    /// becomes constraints.
+    /// becomes constraints. The constraints rank below content hugging, so an
+    /// intrinsic size or a size constraint that the view gains later wins.
     private static func makeFrameSizeConstraints(
         for contentView: UIView
     ) -> [NSLayoutConstraint] {
@@ -292,6 +293,9 @@ private final class AccessoryItemSlotView: UIView {
             constraints.append(
                 contentView.heightAnchor.constraint(equalToConstant: frameSize.height)
             )
+        }
+        for constraint in constraints {
+            constraint.priority = UILayoutPriority(UILayoutPriority.defaultLow.rawValue - 1)
         }
         return constraints
     }

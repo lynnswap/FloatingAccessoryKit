@@ -72,6 +72,13 @@ struct TabBarAccessoryControllerTests {
 
         let size = itemsView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
         #expect(size == CGSize(width: 60, height: 30))
+
+        // A size constraint that the owner adds later replaces the frame size.
+        customView.widthAnchor.constraint(equalToConstant: 90).isActive = true
+        #expect(
+            itemsView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+                == CGSize(width: 90, height: 30)
+        )
     }
 
     @Test func changedCustomViewReplacesTheShownView() {
