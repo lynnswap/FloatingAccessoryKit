@@ -5,6 +5,8 @@ import UIKit
 @MainActor
 final class AccessoryItemsView: UIView {
     struct Transition {
+        /// Whether an item arrives, leaves, or moves.
+        let changesVisibleItems: Bool
         /// Layout changes to run inside the accessory's animation.
         let updates: @MainActor () -> Void
         /// Removes the views that left once the animation has finished.
@@ -116,11 +118,13 @@ final class AccessoryItemsView: UIView {
             install(entry.view, before: nextStayingView)
         }
 
+        let changesVisibleItems = !entries.elementsEqual(newEntries) { $0 === $1 }
         entries = newEntries
         leavingViews = leaving.map(\.view)
         let orderedViews = newEntries.map(\.view)
 
         return Transition(
+            changesVisibleItems: changesVisibleItems,
             updates: { [stackView] in
                 for view in leaving.map(\.view) {
                     view.isHidden = true

@@ -286,6 +286,8 @@ public final class TabBarAccessoryController {
             transition.completion()
             return
         }
+        // Items that stay where they are have nothing to animate.
+        let animated = animated && transition.changesVisibleItems
         performContentUpdate(
             animated: animated,
             transition.updates,

@@ -345,6 +345,7 @@ final class ReentrantAccessoryRenderer: TabBarAccessoryRendering {
     var nextRenderResult = TabBarAccessoryRenderResult.applied
     var onNextRender: (@MainActor () -> Void)?
     var onNextUpdate: (@MainActor () -> Void)?
+    var glassFollowingView: UIView?
     private(set) var renderedStates: [TabBarAccessoryState] = []
     private(set) var renderAnimations: [Bool] = []
     private(set) var updatedStates: [TabBarAccessoryState] = []
