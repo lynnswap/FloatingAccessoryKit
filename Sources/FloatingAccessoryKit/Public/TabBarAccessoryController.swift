@@ -56,10 +56,17 @@ public final class TabBarAccessoryController {
     private let renderer: any TabBarAccessoryRendering
     private var hostObservation: TabBarAccessoryHostObservation?
     private var itemsView: AccessoryItemsView?
+    private var requestedItems: RequestedItems?
+    private var verticalBarInstallation: SystemBarItemsInstallation?
     private let layoutAnimator: TabBarAccessoryLayoutAnimator
     private var isRendering = false
     private var pendingRender: PendingRender?
     private var pendingLayoutUpdateAnimated: Bool?
+
+    private struct RequestedItems {
+        let items: [UIBarButtonItem]
+        weak var primaryItem: UIBarButtonItem?
+    }
 
     private struct PendingRender {
         let previousState: TabBarAccessoryState
@@ -107,22 +114,32 @@ public final class TabBarAccessoryController {
 
     /// The items installed with ``setItems(_:position:animated:)``.
     public var items: [UIBarButtonItem] {
-        itemsView?.items ?? []
+        requestedItems?.items ?? []
     }
 
-    /// Shows bar button items as the accessory content.
+    /// Shows bar button items next to the tab bar.
     ///
-    /// FloatingAccessoryKit creates a button for each item and lays the buttons
-    /// out along the tab bar: side by side for a horizontal tab bar, and
-    /// stacked in the tab bar's column for a vertical one when
-    /// ``followsVerticalTabBar`` is `true`. Passing a different array animates
-    /// arriving and departing items together with the accessory's size.
+    /// Where the items appear follows the tab bar:
     ///
-    /// Each button follows its item's image, title, primary action or
-    /// target-action, menu, enabled state, hidden state, tint color, and
-    /// accessibility label and identifier. An item without a tint color uses
-    /// the label color, as it does in a system bar. An item with a custom view
-    /// shows that view. Space items are not supported.
+    /// - Along a horizontal tab bar, FloatingAccessoryKit creates a button for
+    ///   each item and shows the buttons side by side as the accessory content.
+    ///   Passing a different array animates arriving and departing items
+    ///   together with the accessory's size.
+    /// - Along a vertical tab bar, on iOS 27.1 and later, the items appear in
+    ///   the system bar that UIKit lays out in the tab bar's column.
+    ///   `primaryItem` takes the prominent style there and the other items
+    ///   share one menu; without a primary item, every item appears in the
+    ///   bar. The items belong to the view controller on top of the selected
+    ///   tab's navigation controller, and FloatingAccessoryKit owns that view
+    ///   controller's `toolbarItems` while they are shown. A selected view
+    ///   controller that is not a navigation controller keeps the accessory
+    ///   presentation.
+    ///
+    /// As accessory content, each button follows its item's image, title,
+    /// primary action or target-action, menu, enabled state, hidden state,
+    /// tint color, and accessibility label and identifier. An item without a
+    /// tint color uses the label color, as it does in a system bar. An item
+    /// with a custom view shows that view. Space items are not supported.
     ///
     /// This operation replaces a content view installed with
     /// ``setContentView(_:position:animated:)``. Passing an empty array removes
@@ -130,10 +147,13 @@ public final class TabBarAccessoryController {
     ///
     /// - Parameters:
     ///   - items: The items to show, in layout order.
+    ///   - primaryItem: The item among `items` that stays visible where only
+    ///     one item fits.
     ///   - position: A new placement, or `nil` to preserve the current one.
     ///   - animated: Pass `true` to animate the change.
     public func setItems(
         _ items: [UIBarButtonItem],
+        primaryItem: UIBarButtonItem? = nil,
         position: Position? = nil,
         animated: Bool = false
     ) {
@@ -146,9 +166,65 @@ public final class TabBarAccessoryController {
             return
         }
 
-        let itemsView = self.itemsView ?? makeItemsView()
-        self.itemsView = itemsView
-        applyItems(items, to: itemsView, animated: animated)
+        requestedItems = RequestedItems(items: items, primaryItem: primaryItem)
+        applyRequestedItems(animated: animated)
+    }
+
+    /// Shows the requested items in the bar that matches the tab bar's
+    /// orientation, the selected tab, and ``isHidden``.
+    private func applyRequestedItems(animated: Bool) {
+        guard let requestedItems else {
+            return
+        }
+
+        guard let tabBarController,
+              let target = verticalBarTarget(in: tabBarController) else {
+            verticalBarInstallation?.uninstall(animated: animated)
+            verticalBarInstallation = nil
+            let itemsView = self.itemsView ?? makeItemsView()
+            self.itemsView = itemsView
+            applyItems(requestedItems.items, to: itemsView, animated: animated)
+            return
+        }
+
+        if let itemsView {
+            self.itemsView = nil
+            removeInstalledContent(itemsView, animated: false)
+            itemsView.setItems([])
+        } else if let replacedContentView = state.contentView {
+            removeInstalledContent(replacedContentView, animated: animated)
+        }
+        if verticalBarInstallation?.viewController !== target {
+            verticalBarInstallation?.uninstall(animated: false)
+            verticalBarInstallation = SystemBarItemsInstallation(
+                viewController: target,
+                placement: .verticalToolbar
+            )
+        }
+        if state.isHidden {
+            verticalBarInstallation?.uninstall(animated: animated)
+        } else {
+            verticalBarInstallation?.install(
+                requestedItems.items,
+                primaryItem: requestedItems.primaryItem,
+                animated: animated
+            )
+        }
+        synchronizeHostObservation(in: tabBarController)
+    }
+
+    /// The view controller whose toolbar UIKit shows next to a vertical tab
+    /// bar, or `nil` when the items belong in the accessory.
+    private func verticalBarTarget(
+        in tabBarController: UITabBarController
+    ) -> UIViewController? {
+        guard #available(iOS 27.1, *),
+              tabBarController.hasVerticalTabBar,
+              let navigationController =
+                tabBarController.selectedViewController as? UINavigationController else {
+            return nil
+        }
+        return navigationController.topViewController
     }
 
     /// The requested horizontal placement.
@@ -197,6 +273,11 @@ public final class TabBarAccessoryController {
         let replacedItemsView = contentView === itemsView ? nil : itemsView
         if replacedItemsView != nil {
             itemsView = nil
+        }
+        if contentView !== itemsView {
+            requestedItems = nil
+            verticalBarInstallation?.uninstall(animated: animated)
+            verticalBarInstallation = nil
         }
         let previousState = state
         state.contentView = contentView
@@ -321,6 +402,9 @@ public final class TabBarAccessoryController {
     /// - Parameter animated: Pass `true` to animate a snapshot of the removed
     ///   presentation when one is available.
     public func removeContent(animated: Bool = false) {
+        requestedItems = nil
+        verticalBarInstallation?.uninstall(animated: animated)
+        verticalBarInstallation = nil
         let removedItemsView = itemsView
         itemsView = nil
         // Rendering detaches the presentation first; emptying the items view
@@ -377,6 +461,9 @@ public final class TabBarAccessoryController {
         let previousState = state
         state.isHidden = hidden
         guard state.contentView != nil else {
+            if verticalBarInstallation != nil {
+                applyRequestedItems(animated: animated)
+            }
             return
         }
         render(from: previousState, animated: animated)
@@ -532,14 +619,25 @@ public final class TabBarAccessoryController {
             tabBarController: tabBarController,
             observesOverlayInputs: observesOverlayInputs
         ) { [weak self] in
-            self?.updateLayout()
+            self?.hostDidChange()
         }
+    }
+
+    private func hostDidChange() {
+        if requestedItems != nil, let tabBarController {
+            // The tab bar may have turned, or another tab may be selected.
+            let target = verticalBarTarget(in: tabBarController)
+            if target !== verticalBarInstallation?.viewController {
+                applyRequestedItems(animated: false)
+            }
+        }
+        updateLayout()
     }
 
     private func synchronizeHostObservation(
         in tabBarController: UITabBarController
     ) {
-        if state.contentView != nil {
+        if state.contentView != nil || verticalBarInstallation != nil {
             installHostObservationIfNeeded(in: tabBarController)
         } else {
             hostObservation?.invalidate()

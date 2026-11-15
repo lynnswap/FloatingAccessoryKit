@@ -68,6 +68,39 @@ struct TabBarAccessoryControllerTests {
         #expect(glassView.layer.animationKeys() == nil)
     }
 
+    @Test func itemsUseTheSelectedNavigationControllersToolbarAlongAVerticalTabBar() {
+        guard #available(iOS 27.1, *) else {
+            return
+        }
+        let content = UIViewController()
+        let navigationController = UINavigationController(rootViewController: content)
+        let tabBarController = makeTestTabBarController(viewControllers: [navigationController])
+        let renderer = ReentrantAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+        let primaryItem = UIBarButtonItem(systemItem: .add)
+        let otherItem = UIBarButtonItem(systemItem: .action)
+        let horizontalFrame = tabBarController.tabBar.frame
+
+        tabBarController.tabBar.frame = CGRect(x: 0, y: 0, width: 64, height: 300)
+        controller.setItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(renderer.renderedStates.allSatisfy { $0.contentView == nil })
+        #expect(content.toolbarItems?.last === primaryItem)
+        #expect(content.toolbarItems?.contains { $0 === otherItem } == false)
+        #expect(primaryItem.style == .prominent)
+        #expect(!navigationController.isToolbarHidden)
+        #expect(controller.items == [otherItem, primaryItem])
+
+        tabBarController.tabBar.frame = horizontalFrame
+        controller.setItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(renderer.renderedStates.last?.contentView != nil)
+        #expect(content.toolbarItems == nil)
+        #expect(primaryItem.style == .plain)
+        #expect(navigationController.isToolbarHidden)
+    }
+
     @Test func removingItemsRestoresCustomViewAutoresizing() {
         let controller = TabBarAccessoryController(
             tabBarController: makeTestTabBarController(),
