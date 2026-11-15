@@ -117,6 +117,12 @@ public final class TabBarAccessoryController {
         requestedItems?.items ?? []
     }
 
+    isolated deinit {
+        // A view controller that outlives the tab bar controller gets its
+        // toolbar back.
+        verticalBarInstallation?.uninstall(animated: false)
+    }
+
     /// Shows bar button items next to the tab bar.
     ///
     /// Where the items appear follows the tab bar:

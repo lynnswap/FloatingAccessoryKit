@@ -38,9 +38,10 @@ final class SystemBarItemsInstallation {
     private weak var revealedToolbar: UINavigationController?
     private var originalAdditionalOverflowItems: UIDeferredMenuElement?
     private var trailingGroup: UIBarButtonItemGroup?
-    /// The app's own `rightBarButtonItems`. Assigning `trailingItemGroups`
-    /// would discard them, so the accessory items join them instead.
-    private var originalRightBarButtonItems: [UIBarButtonItem]?
+    /// The accessory items placed among the app's own `rightBarButtonItems`.
+    /// Assigning `trailingItemGroups` would discard the app's items, so the
+    /// accessory items join them instead.
+    private var rightBarButtonItems: [UIBarButtonItem]?
     private var itemRestorations: [@MainActor () -> Void] = []
 
     init(viewController: UIViewController, placement: Placement) {
@@ -99,16 +100,18 @@ final class SystemBarItemsInstallation {
             if !isInstalled {
                 originalAdditionalOverflowItems = navigationItem.additionalOverflowItems
                 if navigationItem.trailingItemGroups.isEmpty,
-                   let rightBarButtonItems = navigationItem.rightBarButtonItems,
-                   !rightBarButtonItems.isEmpty {
-                    originalRightBarButtonItems = rightBarButtonItems
+                   navigationItem.rightBarButtonItems?.isEmpty == false {
+                    rightBarButtonItems = []
                 }
             }
             let shownItems = primaryItem.map { [$0] } ?? items
-            if let originalRightBarButtonItems {
+            if let previousItems = rightBarButtonItems {
                 // The first right item is the one at the trailing edge.
-                navigationItem.rightBarButtonItems =
-                    shownItems.reversed() + originalRightBarButtonItems
+                let appItems = (navigationItem.rightBarButtonItems ?? []).filter { item in
+                    !previousItems.contains { $0 === item }
+                }
+                navigationItem.rightBarButtonItems = shownItems.reversed() + appItems
+                rightBarButtonItems = shownItems
             } else {
                 let group = UIBarButtonItemGroup.fixedGroup(items: shownItems)
                 navigationItem.trailingItemGroups = navigationItem.trailingItemGroups
@@ -144,13 +147,21 @@ final class SystemBarItemsInstallation {
             originalToolbarItems = nil
         case .navigationBar:
             let navigationItem = viewController.navigationItem
-            if let originalRightBarButtonItems {
-                navigationItem.rightBarButtonItems = originalRightBarButtonItems
-            } else {
+            // Only the accessory's own items leave, and only while they are
+            // still in the bar, so changes the app made meanwhile stay.
+            if let rightBarButtonItems {
+                let currentItems = navigationItem.rightBarButtonItems ?? []
+                let appItems = currentItems.filter { item in
+                    !rightBarButtonItems.contains { $0 === item }
+                }
+                if appItems.count != currentItems.count {
+                    navigationItem.rightBarButtonItems = appItems
+                }
+            } else if navigationItem.trailingItemGroups.contains(where: { $0 === trailingGroup }) {
                 navigationItem.trailingItemGroups = navigationItem.trailingItemGroups
                     .filter { $0 !== trailingGroup }
             }
-            originalRightBarButtonItems = nil
+            rightBarButtonItems = nil
             trailingGroup = nil
             navigationItem.additionalOverflowItems = originalAdditionalOverflowItems
             originalAdditionalOverflowItems = nil
