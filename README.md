@@ -80,6 +80,8 @@ viewController.setFloatingAccessoryItems(
   in the navigation controller's toolbar.
 - In a regular width, the primary item appears at the trailing side of the
   navigation bar and the other items go to the bar's overflow menu.
+- Pass `placement: .toolbar` to keep the items in the toolbar whatever the
+  width.
 
 While items are in a system bar, FloatingAccessoryKit owns that view
 controller's `toolbarItems`, or its navigation item's `additionalOverflowItems`,

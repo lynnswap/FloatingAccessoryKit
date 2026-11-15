@@ -40,6 +40,7 @@ public func exerciseFloatingAccessoryPublicAPI(
     viewController.setFloatingAccessoryItems(
         [item],
         primaryItem: item,
+        placement: .toolbar,
         animated: false
     )
     _ = viewController.floatingAccessoryItems

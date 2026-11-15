@@ -1,10 +1,20 @@
 import ObjectiveC
 import UIKit
 
+/// The bar of a view controller that shows its floating accessory items.
+public enum FloatingAccessoryItemPlacement: Sendable {
+    /// The toolbar in a compact width or while the navigation bar is hidden,
+    /// and the navigation bar otherwise.
+    case automatic
+
+    /// The toolbar, whatever the width.
+    case toolbar
+}
+
 @MainActor
 public extension UIViewController {
     /// The items installed with
-    /// ``setFloatingAccessoryItems(_:primaryItem:animated:)``.
+    /// ``setFloatingAccessoryItems(_:primaryItem:placement:animated:)``.
     var floatingAccessoryItems: [UIBarButtonItem] {
         floatingAccessoryItemsCoordinator?.items ?? []
     }
@@ -16,8 +26,9 @@ public extension UIViewController {
     /// ``TabBarAccessoryController/setItems(_:primaryItem:position:animated:)``
     /// instead.
     ///
-    /// FloatingAccessoryKit picks the bar from the horizontal size class and
-    /// moves the items when the size class changes:
+    /// With ``FloatingAccessoryItemPlacement/automatic``, FloatingAccessoryKit
+    /// picks the bar from the horizontal size class and moves the items when
+    /// the size class changes:
     ///
     /// - In a compact width, or while the navigation bar is hidden, every item
     ///   appears in the toolbar of the enclosing navigation controller. FloatingAccessoryKit shows the
@@ -46,11 +57,13 @@ public extension UIViewController {
     ///     remove the items.
     ///   - primaryItem: The item among `items` that stays visible where only
     ///     one item fits.
+    ///   - placement: The bar that shows the items.
     ///   - animated: Pass `true` to animate the change where the bar supports
     ///     it.
     func setFloatingAccessoryItems(
         _ items: [UIBarButtonItem],
         primaryItem: UIBarButtonItem? = nil,
+        placement: FloatingAccessoryItemPlacement = .automatic,
         animated: Bool = false
     ) {
         guard !items.isEmpty else {
@@ -62,7 +75,12 @@ public extension UIViewController {
         let coordinator = floatingAccessoryItemsCoordinator
             ?? ViewControllerAccessoryItemsCoordinator(viewController: self)
         floatingAccessoryItemsCoordinator = coordinator
-        coordinator.setItems(items, primaryItem: primaryItem, animated: animated)
+        coordinator.setItems(
+            items,
+            primaryItem: primaryItem,
+            placement: placement,
+            animated: animated
+        )
     }
 }
 
@@ -98,6 +116,7 @@ private final class ViewControllerAccessoryItemsCoordinator {
     private weak var viewController: UIViewController?
     private(set) var items: [UIBarButtonItem] = []
     private weak var primaryItem: UIBarButtonItem?
+    private var requestedPlacement = FloatingAccessoryItemPlacement.automatic
     private var installation: SystemBarItemsInstallation?
     private var traitRegistration: (any UITraitChangeRegistration)?
 
@@ -113,10 +132,12 @@ private final class ViewControllerAccessoryItemsCoordinator {
     func setItems(
         _ items: [UIBarButtonItem],
         primaryItem: UIBarButtonItem?,
+        placement: FloatingAccessoryItemPlacement,
         animated: Bool
     ) {
         self.items = items
         self.primaryItem = primaryItem
+        requestedPlacement = placement
         install(animated: animated)
     }
 
@@ -143,7 +164,8 @@ private final class ViewControllerAccessoryItemsCoordinator {
 
         // A hidden navigation bar cannot show the items, whatever the width.
         let placement: SystemBarItemsInstallation.Placement =
-            viewController.traitCollection.horizontalSizeClass == .regular
+            requestedPlacement == .automatic
+                && viewController.traitCollection.horizontalSizeClass == .regular
                 && viewController.navigationController?.isNavigationBarHidden == false
                 ? .navigationBar
                 : .toolbar
