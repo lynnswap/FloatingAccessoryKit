@@ -239,12 +239,16 @@ final class SystemBarItemsInstallation {
             .first { !$0.isEmpty } ?? ""
         let image = item.image ?? primaryAction?.image ?? item.menu?.image
 
-        let performsAction = primaryAction != nil
-            || item.action != nil
-            || item.changesSelectionAsPrimaryAction
-        guard performsAction else {
+        // With a menu, the selection follows the menu's own choice.
+        let togglesSelection = item.changesSelectionAsPrimaryAction && item.menu == nil
+        guard primaryAction != nil || item.action != nil || togglesSelection else {
             return item.menu.map { menu in
-                UIMenu(title: title, image: image, children: menu.children)
+                UIMenu(
+                    title: title,
+                    image: image,
+                    options: menu.options.subtracting(.displayInline),
+                    children: menu.children
+                )
             }
         }
 
@@ -256,7 +260,7 @@ final class SystemBarItemsInstallation {
             guard let item else {
                 return
             }
-            if item.changesSelectionAsPrimaryAction {
+            if togglesSelection {
                 item.isSelected.toggle()
             }
             if let primaryAction = item.primaryAction {
@@ -277,7 +281,10 @@ final class SystemBarItemsInstallation {
         return UIMenu(
             title: title,
             image: image,
-            children: [action, UIMenu(options: .displayInline, children: menu.children)]
+            children: [
+                action,
+                UIMenu(options: menu.options.union(.displayInline), children: menu.children)
+            ]
         )
     }
 
