@@ -102,6 +102,18 @@ struct TabBarAccessoryControllerTests {
         #expect(navigationController.isToolbarHidden)
     }
 
+    @Test func itemButtonDrawsInTheItemsTintColor() {
+        let item = UIBarButtonItem(image: UIImage(systemName: "plus"))
+        let button = AccessoryItemButton(item: item)
+        #expect(button.configuration?.baseForegroundColor == nil)
+
+        item.tintColor = .systemRed
+        #expect(button.configuration?.baseForegroundColor == .systemRed)
+
+        item.tintColor = nil
+        #expect(button.configuration?.baseForegroundColor == nil)
+    }
+
     @Test func removingItemsRestoresCustomViewAutoresizing() {
         let controller = TabBarAccessoryController(
             tabBarController: makeTestTabBarController(),
