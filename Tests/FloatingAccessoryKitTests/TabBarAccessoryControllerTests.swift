@@ -27,6 +27,43 @@ struct TabBarAccessoryControllerTests {
         #expect(controller.position == .center)
     }
 
+    @Test func itemsWithoutAVisibleItemReplaceInstalledContentView() {
+        let renderer = ReentrantAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: makeTestTabBarController(),
+            renderer: renderer
+        )
+        let hiddenItem = UIBarButtonItem(systemItem: .add)
+        hiddenItem.isHidden = true
+
+        controller.setContentView(FixedSizeView(size: CGSize(width: 44, height: 44)))
+        controller.setItems([hiddenItem])
+        #expect(controller.contentView == nil)
+        #expect(renderer.renderedStates.last?.contentView == nil)
+        #expect(controller.items == [hiddenItem])
+
+        controller.setContentView(FixedSizeView(size: CGSize(width: 44, height: 44)))
+        controller.setItems([])
+        #expect(controller.contentView == nil)
+        #expect(renderer.renderedStates.last?.contentView == nil)
+    }
+
+    @Test func removingItemsRestoresCustomViewAutoresizing() {
+        let controller = TabBarAccessoryController(
+            tabBarController: makeTestTabBarController(),
+            renderer: ReentrantAccessoryRenderer()
+        )
+        let customView = FixedSizeView(size: CGSize(width: 44, height: 44))
+        customView.translatesAutoresizingMaskIntoConstraints = true
+
+        controller.setItems([UIBarButtonItem(customView: customView)])
+        #expect(!customView.translatesAutoresizingMaskIntoConstraints)
+
+        controller.removeContent()
+        #expect(customView.translatesAutoresizingMaskIntoConstraints)
+        #expect(customView.superview == nil)
+    }
+
     @Test func ownershipLossDoesNotDiscardReentrantReplacement() {
         let tabBarController = makeTestTabBarController()
         let renderer = ReentrantAccessoryRenderer()

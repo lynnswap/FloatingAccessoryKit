@@ -141,10 +141,7 @@ public final class TabBarAccessoryController {
         }
 
         guard !items.isEmpty else {
-            if let itemsView {
-                self.itemsView = nil
-                removeInstalledContent(itemsView, animated: animated)
-            }
+            removeContent(animated: animated)
             return
         }
 
@@ -196,7 +193,8 @@ public final class TabBarAccessoryController {
         position: Position? = nil,
         animated: Bool = false
     ) {
-        if contentView !== itemsView {
+        let replacedItemsView = contentView === itemsView ? nil : itemsView
+        if replacedItemsView != nil {
             itemsView = nil
         }
         let previousState = state
@@ -205,6 +203,7 @@ public final class TabBarAccessoryController {
             state.position = position
         }
         render(from: previousState, animated: animated)
+        replacedItemsView?.setItems([])
     }
 
     /// Performs changes to accessory content and remeasures it in the same
@@ -271,6 +270,9 @@ public final class TabBarAccessoryController {
             itemsView.setItems(items)
             if itemsView.hasVisibleItems {
                 setContentView(itemsView, animated: animated)
+            } else if let replacedContentView = state.contentView {
+                // The items replace other content even while none is visible.
+                removeInstalledContent(replacedContentView, animated: animated)
             }
             return
         }
@@ -316,7 +318,11 @@ public final class TabBarAccessoryController {
     /// - Parameter animated: Pass `true` to animate a snapshot of the removed
     ///   presentation when one is available.
     public func removeContent(animated: Bool = false) {
+        let removedItemsView = itemsView
         itemsView = nil
+        // Rendering detaches the presentation first; emptying the items view
+        // then returns custom views to their owners' layout mode.
+        defer { removedItemsView?.setItems([]) }
         guard state.contentView != nil else {
             return
         }
