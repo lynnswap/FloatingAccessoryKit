@@ -246,7 +246,18 @@ public final class TabBarAccessoryController {
         in viewController: UIViewController
     ) -> UINavigationController? {
         let candidates = navigationControllers(in: viewController)
-        return candidates.first { $0.viewIfLoaded?.window != nil } ?? candidates.first
+        return candidates.first { isShown($0) && $0.viewIfLoaded?.window != nil }
+            ?? candidates.first(where: isShown)
+            ?? candidates.first
+    }
+
+    /// Whether neither the view controller's view nor an ancestor of it is
+    /// hidden.
+    private static func isShown(_ viewController: UIViewController) -> Bool {
+        guard let view = viewController.viewIfLoaded else {
+            return false
+        }
+        return sequence(first: view, next: \.superview).allSatisfy { !$0.isHidden }
     }
 
     private static func navigationControllers(
