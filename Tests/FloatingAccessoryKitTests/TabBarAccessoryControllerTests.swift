@@ -48,6 +48,26 @@ struct TabBarAccessoryControllerTests {
         #expect(renderer.renderedStates.last?.contentView == nil)
     }
 
+    @Test func settingTheSameItemsAgainDoesNotReplayTheItemAnimation() {
+        let renderer = ReentrantAccessoryRenderer()
+        let glassView = UIView()
+        renderer.glassFollowingView = glassView
+        let controller = TabBarAccessoryController(
+            tabBarController: makeTestTabBarController(),
+            renderer: renderer
+        )
+        let first = UIBarButtonItem(systemItem: .add)
+        let second = UIBarButtonItem(systemItem: .action)
+        controller.setItems([first])
+
+        controller.setItems([first, second], animated: true)
+        #expect(glassView.layer.animationKeys()?.isEmpty == false)
+
+        glassView.layer.removeAllAnimations()
+        controller.setItems([first, second], animated: true)
+        #expect(glassView.layer.animationKeys() == nil)
+    }
+
     @Test func removingItemsRestoresCustomViewAutoresizing() {
         let controller = TabBarAccessoryController(
             tabBarController: makeTestTabBarController(),

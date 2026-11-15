@@ -65,7 +65,8 @@ final class AccessoryItemButton: UIButton {
         self.configuration = configuration
 
         isEnabled = item.isEnabled
-        tintColor = item.tintColor
+        // System bars draw an item without a tint in the label color.
+        tintColor = item.tintColor ?? .label
         menu = item.menu
         showsMenuAsPrimaryAction = item.menu != nil
             && item.primaryAction == nil
