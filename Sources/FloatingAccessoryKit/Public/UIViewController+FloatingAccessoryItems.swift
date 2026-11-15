@@ -19,8 +19,8 @@ public extension UIViewController {
     /// FloatingAccessoryKit picks the bar from the horizontal size class and
     /// moves the items when the size class changes:
     ///
-    /// - In a compact width, every item appears in the toolbar of the
-    ///   enclosing navigation controller. FloatingAccessoryKit shows the
+    /// - In a compact width, or while the navigation bar is hidden, every item
+    ///   appears in the toolbar of the enclosing navigation controller. FloatingAccessoryKit shows the
     ///   toolbar when it is hidden, so call this method once the view
     ///   controller is in its navigation controller, such as from
     ///   `viewDidLoad()`. The toolbar stays visible until the items are
@@ -28,6 +28,7 @@ public extension UIViewController {
     /// - In a regular width, `primaryItem` appears at the trailing side of the
     ///   navigation bar and the other items go to the bar's overflow menu.
     ///   Without a primary item, every item appears in the navigation bar.
+    ///   After showing or hiding the navigation bar, set the items again.
     ///
     /// While items are installed, FloatingAccessoryKit owns this view
     /// controller's `toolbarItems` and its navigation item's
@@ -140,8 +141,10 @@ private final class ViewControllerAccessoryItemsCoordinator {
             return
         }
 
+        // A hidden navigation bar cannot show the items, whatever the width.
         let placement: SystemBarItemsInstallation.Placement =
             viewController.traitCollection.horizontalSizeClass == .regular
+                && viewController.navigationController?.isNavigationBarHidden == false
                 ? .navigationBar
                 : .toolbar
         if installation?.placement != placement {

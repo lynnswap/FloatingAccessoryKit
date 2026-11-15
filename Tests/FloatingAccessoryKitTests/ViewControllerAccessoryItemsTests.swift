@@ -33,6 +33,14 @@ struct ViewControllerAccessoryItemsTests {
         )
         #expect(content.navigationItem.additionalOverflowItems != nil)
 
+        navigationController.setNavigationBarHidden(true, animated: false)
+        content.setFloatingAccessoryItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(content.navigationItem.trailingItemGroups.isEmpty)
+        #expect(content.toolbarItems?.last === primaryItem)
+        navigationController.setNavigationBarHidden(false, animated: false)
+        content.setFloatingAccessoryItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(content.toolbarItems == [existingItem])
+
         content.setFloatingAccessoryItems([])
         #expect(content.navigationItem.trailingItemGroups.isEmpty)
         #expect(content.navigationItem.additionalOverflowItems == nil)

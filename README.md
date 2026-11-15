@@ -76,7 +76,8 @@ viewController.setFloatingAccessoryItems(
 )
 ```
 
-- In a compact width, the items appear in the navigation controller's toolbar.
+- In a compact width, or while the navigation bar is hidden, the items appear
+  in the navigation controller's toolbar.
 - In a regular width, the primary item appears at the trailing side of the
   navigation bar and the other items go to the bar's overflow menu.
 
