@@ -75,7 +75,11 @@ struct TabBarAccessoryControllerTests {
         }
         let content = UIViewController()
         let navigationController = UINavigationController(rootViewController: content)
-        let tabBarController = makeTestTabBarController(viewControllers: [navigationController])
+        // A tab may wrap its navigation controller in a container of its own.
+        let tabContainer = UIViewController()
+        tabContainer.addChild(navigationController)
+        navigationController.didMove(toParent: tabContainer)
+        let tabBarController = makeTestTabBarController(viewControllers: [tabContainer])
         let renderer = ReentrantAccessoryRenderer()
         let controller = TabBarAccessoryController(
             tabBarController: tabBarController,
@@ -112,6 +116,34 @@ struct TabBarAccessoryControllerTests {
 
         item.tintColor = nil
         #expect(button.configuration?.baseForegroundColor == nil)
+    }
+
+    @available(iOS 26.0, *)
+    @Test func itemsUseTheNavigationControllerThatATabsContainerShows() {
+        guard SystemBarItemsInstallation.supportsVerticalToolbar else {
+            return
+        }
+        let hiddenContent = UIViewController()
+        let shownContent = UIViewController()
+        let tabContainer = UIViewController()
+        for content in [hiddenContent, shownContent] {
+            let navigationController = UINavigationController(rootViewController: content)
+            tabContainer.addChild(navigationController)
+            tabContainer.view.addSubview(navigationController.view)
+            navigationController.didMove(toParent: tabContainer)
+        }
+        hiddenContent.navigationController?.view.isHidden = true
+        let tabBarController = makeTestTabBarController(viewControllers: [tabContainer])
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: ReentrantAccessoryRenderer()
+        )
+        let item = UIBarButtonItem(systemItem: .add)
+
+        tabBarController.tabBar.frame = CGRect(x: 0, y: 0, width: 64, height: 300)
+        controller.setItems([item], primaryItem: item)
+        #expect(hiddenContent.toolbarItems == nil)
+        #expect(shownContent.toolbarItems?.last === item)
     }
 
     @Test func removingItemsRestoresCustomViewAutoresizing() {

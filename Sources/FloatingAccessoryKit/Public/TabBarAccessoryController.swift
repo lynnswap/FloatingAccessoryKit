@@ -142,9 +142,10 @@ public final class TabBarAccessoryController {
     ///   tab's navigation controller, and FloatingAccessoryKit owns that view
     ///   controller's `toolbarItems` while they are shown. The items move when
     ///   the selected tab changes; after a push or a pop, set the items again.
-    ///   A selected view controller that is not a navigation controller keeps
-    ///   the accessory presentation. Building with Xcode 27.2 or later is
-    ///   required; earlier versions keep the accessory presentation.
+    ///   A selected view controller that neither is nor contains a navigation
+    ///   controller keeps the accessory presentation. Building with Xcode 27.2
+    ///   or later is required; earlier versions keep the accessory
+    ///   presentation.
     ///
     /// As accessory content, each button follows its item's image, title,
     /// primary action or target-action, menu, enabled state, hidden state,
@@ -231,11 +232,41 @@ public final class TabBarAccessoryController {
     ) -> UIViewController? {
         guard SystemBarItemsInstallation.supportsVerticalToolbar,
               tabBarController.hasVerticalTabBar,
-              let navigationController =
-                tabBarController.selectedViewController as? UINavigationController else {
+              let selectedViewController = tabBarController.selectedViewController else {
             return nil
         }
-        return navigationController.topViewController
+        return Self.navigationController(in: selectedViewController)?.topViewController
+    }
+
+    /// The navigation controller that is the view controller itself or one
+    /// among its descendants. A tab may wrap its navigation controller in a
+    /// container of its own; a container with several prefers the one on
+    /// screen.
+    private static func navigationController(
+        in viewController: UIViewController
+    ) -> UINavigationController? {
+        let candidates = navigationControllers(in: viewController)
+        return candidates.first { isShown($0) && $0.viewIfLoaded?.window != nil }
+            ?? candidates.first(where: isShown)
+            ?? candidates.first
+    }
+
+    /// Whether neither the view controller's view nor an ancestor of it is
+    /// hidden.
+    private static func isShown(_ viewController: UIViewController) -> Bool {
+        guard let view = viewController.viewIfLoaded else {
+            return false
+        }
+        return sequence(first: view, next: \.superview).allSatisfy { !$0.isHidden }
+    }
+
+    private static func navigationControllers(
+        in viewController: UIViewController
+    ) -> [UINavigationController] {
+        if let navigationController = viewController as? UINavigationController {
+            return [navigationController]
+        }
+        return viewController.children.flatMap(navigationControllers(in:))
     }
 
     /// The requested horizontal placement.

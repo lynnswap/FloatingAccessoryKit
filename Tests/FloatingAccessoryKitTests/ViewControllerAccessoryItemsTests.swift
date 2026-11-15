@@ -33,6 +33,17 @@ struct ViewControllerAccessoryItemsTests {
         )
         #expect(content.navigationItem.additionalOverflowItems != nil)
 
+        // An explicit toolbar placement keeps the items out of the navigation bar.
+        content.setFloatingAccessoryItems(
+            [otherItem, primaryItem],
+            primaryItem: primaryItem,
+            placement: .toolbar
+        )
+        #expect(content.navigationItem.trailingItemGroups.isEmpty)
+        #expect(content.toolbarItems?.last === primaryItem)
+        content.setFloatingAccessoryItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(content.toolbarItems == [existingItem])
+
         navigationController.setNavigationBarHidden(true, animated: false)
         content.setFloatingAccessoryItems([otherItem, primaryItem], primaryItem: primaryItem)
         #expect(content.navigationItem.trailingItemGroups.isEmpty)
