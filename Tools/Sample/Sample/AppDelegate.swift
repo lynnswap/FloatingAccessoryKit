@@ -5,6 +5,7 @@
 //  Created by Kazuki Nakashima on 2026/05/06.
 //
 
+import FloatingAccessoryKit
 import UIKit
 
 @main
@@ -13,7 +14,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        true
+        TabBarAccessoryController.followsVerticalTabBar = true
+        return true
     }
 
     func application(

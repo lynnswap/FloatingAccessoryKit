@@ -15,7 +15,8 @@ struct TabBarAccessoryLayoutAnimator {
     func perform(
         animated: Bool,
         in tabBarController: UITabBarController,
-        updates: @escaping (_ animated: Bool) -> Void
+        updates: @escaping (_ animated: Bool) -> Void,
+        completion: (@MainActor () -> Void)? = nil
     ) {
         let layoutView = tabBarController.view!
         let reduceMotionEnabled = isReduceMotionEnabled()
@@ -32,6 +33,7 @@ struct TabBarAccessoryLayoutAnimator {
             } else {
                 applyUpdates()
             }
+            completion?()
             return
         }
 
@@ -56,6 +58,30 @@ struct TabBarAccessoryLayoutAnimator {
             updates(true)
             if #unavailable(iOS 26.0) {
                 layoutView.layoutIfNeeded()
+            }
+        } completion: { _ in
+            completion?()
+        }
+    }
+
+    /// Briefly scales `view` up and back, the way system bars swell while
+    /// their items change.
+    func performBulge(on view: UIView) {
+        guard UIView.areAnimationsEnabled,
+              !isReduceMotionEnabled() else {
+            return
+        }
+
+        UIView.animateKeyframes(
+            withDuration: 0.5,
+            delay: 0,
+            options: [.allowUserInteraction, .beginFromCurrentState]
+        ) {
+            UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.4) {
+                view.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+            }
+            UIView.addKeyframe(withRelativeStartTime: 0.4, relativeDuration: 0.6) {
+                view.transform = .identity
             }
         }
     }

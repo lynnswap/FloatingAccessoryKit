@@ -31,6 +31,12 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         contentHostView?.invalidatePreferredSize(animated: animated)
     }
 
+    // UIKit's accessory glass tracks the content host's layer, including its
+    // transform.
+    var glassFollowingView: UIView? {
+        contentHostView
+    }
+
     func render(
         from previousState: TabBarAccessoryState,
         to state: TabBarAccessoryState,
