@@ -68,8 +68,9 @@ struct TabBarAccessoryControllerTests {
         #expect(glassView.layer.animationKeys() == nil)
     }
 
+    @available(iOS 26.0, *)
     @Test func itemsUseTheSelectedNavigationControllersToolbarAlongAVerticalTabBar() {
-        guard #available(iOS 27.1, *) else {
+        guard SystemBarItemsInstallation.supportsVerticalToolbar else {
             return
         }
         let content = UIViewController()

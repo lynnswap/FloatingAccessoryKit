@@ -21,7 +21,9 @@ public extension UIViewController {
     ///
     /// - In a compact width, every item appears in the toolbar of the
     ///   enclosing navigation controller. FloatingAccessoryKit shows the
-    ///   toolbar when it is hidden.
+    ///   toolbar when it is hidden, so call this method once the view
+    ///   controller is in its navigation controller, such as from
+    ///   `viewDidLoad()`.
     /// - In a regular width, `primaryItem` appears at the trailing side of the
     ///   navigation bar and the other items go to the bar's overflow menu.
     ///   Without a primary item, every item appears in the navigation bar.

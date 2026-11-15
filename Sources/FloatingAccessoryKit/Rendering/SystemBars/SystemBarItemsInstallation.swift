@@ -15,6 +15,20 @@ final class SystemBarItemsInstallation {
         case navigationBar
     }
 
+    /// Whether the items can go next to a vertical tab bar.
+    ///
+    /// The bar needs `UIBarButtonItem.axisBehavior` from the iOS 27.1 SDK.
+    /// Xcode 27.2 has the first compiler version that tells that SDK apart
+    /// from the iOS 27.0 SDK.
+    static var supportsVerticalToolbar: Bool {
+        #if compiler(>=6.4.2)
+        if #available(iOS 27.1, *) {
+            return true
+        }
+        #endif
+        return false
+    }
+
     private(set) weak var viewController: UIViewController?
     let placement: Placement
 
@@ -66,6 +80,7 @@ final class SystemBarItemsInstallation {
                     }
                 }
             }
+            #if compiler(>=6.4.2)
             if #available(iOS 27.1, *) {
                 for item in barItems {
                     let originalAxisBehavior = item.axisBehavior
@@ -73,6 +88,7 @@ final class SystemBarItemsInstallation {
                     item.axisBehavior = .verticalPreferred
                 }
             }
+            #endif
             setToolbarItems(barItems, of: viewController, animated: animated)
         case .navigationBar:
             let navigationItem = viewController.navigationItem
@@ -176,11 +192,13 @@ final class SystemBarItemsInstallation {
             .first { !$0.isEmpty } ?? ""
         let image = item.image ?? primaryAction?.image ?? item.menu?.image
 
-        if primaryAction == nil, item.action == nil {
+        if primaryAction == nil, item.action == nil, item.isEnabled {
             return item.menu.map { menu in
                 UIMenu(title: title, image: image, children: menu.children)
             }
         }
+        // A disabled item stays in the menu as a disabled action, also when
+        // it would open a submenu.
         return UIAction(
             title: title,
             image: image,

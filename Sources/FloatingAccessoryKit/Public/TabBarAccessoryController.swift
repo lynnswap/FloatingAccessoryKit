@@ -131,9 +131,11 @@ public final class TabBarAccessoryController {
     ///   share one menu; without a primary item, every item appears in the
     ///   bar. The items belong to the view controller on top of the selected
     ///   tab's navigation controller, and FloatingAccessoryKit owns that view
-    ///   controller's `toolbarItems` while they are shown. A selected view
-    ///   controller that is not a navigation controller keeps the accessory
-    ///   presentation.
+    ///   controller's `toolbarItems` while they are shown. The items move when
+    ///   the selected tab changes; after a push or a pop, set the items again.
+    ///   A selected view controller that is not a navigation controller keeps
+    ///   the accessory presentation. Building with Xcode 27.2 or later is
+    ///   required; earlier versions keep the accessory presentation.
     ///
     /// As accessory content, each button follows its item's image, title,
     /// primary action or target-action, menu, enabled state, hidden state,
@@ -218,7 +220,7 @@ public final class TabBarAccessoryController {
     private func verticalBarTarget(
         in tabBarController: UITabBarController
     ) -> UIViewController? {
-        guard #available(iOS 27.1, *),
+        guard SystemBarItemsInstallation.supportsVerticalToolbar,
               tabBarController.hasVerticalTabBar,
               let navigationController =
                 tabBarController.selectedViewController as? UINavigationController else {
@@ -338,7 +340,8 @@ public final class TabBarAccessoryController {
                   self.itemsView === itemsView else {
                 return
             }
-            self.applyItems(itemsView.items, to: itemsView, animated: true)
+            // The tab bar may have turned while no item was visible.
+            self.applyRequestedItems(animated: true)
         }
         return itemsView
     }
