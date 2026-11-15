@@ -94,8 +94,8 @@ struct TabBarAccessoryControllerTests {
         #expect(!navigationController.isToolbarHidden)
         #expect(controller.items == [otherItem, primaryItem])
 
+        // The items follow the tab bar back without being set again.
         tabBarController.tabBar.frame = horizontalFrame
-        controller.setItems([otherItem, primaryItem], primaryItem: primaryItem)
         #expect(renderer.renderedStates.last?.contentView != nil)
         #expect(content.toolbarItems == nil)
         #expect(primaryItem.style == .plain)

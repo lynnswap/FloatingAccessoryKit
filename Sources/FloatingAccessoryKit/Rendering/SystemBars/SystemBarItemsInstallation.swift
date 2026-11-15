@@ -222,18 +222,16 @@ final class SystemBarItemsInstallation {
                 items
                     .filter { !$0.isHidden }
                     .compactMap { item in
-                        // A disabled item never offers its own representation.
-                        item.isEnabled
-                            ? item.menuRepresentation ?? makeMenuElement(for: item)
-                            : makeMenuElement(for: item)
+                        let element = item.menuRepresentation ?? makeMenuElement(for: item)
+                        return item.isEnabled ? element : element.map(makeDisabledElement)
                     }
             )
         }
     }
 
     /// A menu element for an item without a menu representation of its own:
-    /// its primary action or target-action as an action, or its menu as a
-    /// submenu.
+    /// its primary action, target-action, or selection as an action, its menu
+    /// as a submenu, or both together.
     private static func makeMenuElement(for item: UIBarButtonItem) -> UIMenuElement? {
         let primaryAction = item.primaryAction
         let title = [item.title, primaryAction?.title, item.menu?.title, item.accessibilityLabel]
@@ -241,20 +239,25 @@ final class SystemBarItemsInstallation {
             .first { !$0.isEmpty } ?? ""
         let image = item.image ?? primaryAction?.image ?? item.menu?.image
 
-        if primaryAction == nil, item.action == nil, item.isEnabled {
+        let performsAction = primaryAction != nil
+            || item.action != nil
+            || item.changesSelectionAsPrimaryAction
+        guard performsAction else {
             return item.menu.map { menu in
                 UIMenu(title: title, image: image, children: menu.children)
             }
         }
-        // A disabled item stays in the menu as a disabled action, also when
-        // it would open a submenu.
-        return UIAction(
+
+        let action = UIAction(
             title: title,
             image: image,
-            attributes: item.isEnabled ? [] : .disabled
+            state: item.isSelected ? .on : .off
         ) { [weak item] _ in
             guard let item else {
                 return
+            }
+            if item.changesSelectionAsPrimaryAction {
+                item.isSelected.toggle()
             }
             if let primaryAction = item.primaryAction {
                 primaryAction.performWithSender(item, target: nil)
@@ -267,6 +270,29 @@ final class SystemBarItemsInstallation {
                 )
             }
         }
+        guard let menu = item.menu else {
+            return action
+        }
+        // The item's own action leads its menu's commands.
+        return UIMenu(
+            title: title,
+            image: image,
+            children: [action, UIMenu(options: .displayInline, children: menu.children)]
+        )
+    }
+
+    /// The element as a disabled item's entry: it keeps its title and image
+    /// and cannot be chosen or opened.
+    private static func makeDisabledElement(_ element: UIMenuElement) -> UIMenuElement {
+        if let action = (element as? UIAction)?.copy() as? UIAction {
+            action.attributes.insert(.disabled)
+            return action
+        }
+        return UIAction(
+            title: element.title,
+            image: element.image,
+            attributes: .disabled
+        ) { _ in }
     }
 }
 

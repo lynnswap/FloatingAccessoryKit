@@ -58,6 +58,7 @@ public final class TabBarAccessoryController {
     private var itemsView: AccessoryItemsView?
     private var requestedItems: RequestedItems?
     private var verticalBarInstallation: SystemBarItemsInstallation?
+    private var tabBarBoundsObservation: NSKeyValueObservation?
     private let layoutAnimator: TabBarAccessoryLayoutAnimator
     private var isRendering = false
     private var pendingRender: PendingRender?
@@ -635,19 +636,39 @@ public final class TabBarAccessoryController {
     }
 
     private func hostDidChange() {
-        if requestedItems != nil, let tabBarController {
-            // The tab bar may have turned, or another tab may be selected.
-            let target = verticalBarTarget(in: tabBarController)
-            if target !== verticalBarInstallation?.viewController {
-                applyRequestedItems(animated: false)
-            }
-        }
+        moveRequestedItemsIfNeeded()
         updateLayout()
+    }
+
+    /// Moves the items when the tab bar has turned or another tab is selected.
+    private func moveRequestedItemsIfNeeded() {
+        guard requestedItems != nil, let tabBarController else {
+            return
+        }
+        let target = verticalBarTarget(in: tabBarController)
+        if target !== verticalBarInstallation?.viewController {
+            applyRequestedItems(animated: false)
+        }
     }
 
     private func synchronizeHostObservation(
         in tabBarController: UITabBarController
     ) {
+        if requestedItems != nil, SystemBarItemsInstallation.supportsVerticalToolbar {
+            // The tab bar can turn without the root view changing its size.
+            if tabBarBoundsObservation == nil {
+                // The layer reports every size change, however UIKit sets it.
+                tabBarBoundsObservation = tabBarController.tabBar.layer.observe(
+                    \.bounds
+                ) { [weak self] _, _ in
+                    MainActor.assumeIsolated {
+                        self?.moveRequestedItemsIfNeeded()
+                    }
+                }
+            }
+        } else {
+            tabBarBoundsObservation = nil
+        }
         if state.contentView != nil || verticalBarInstallation != nil {
             installHostObservationIfNeeded(in: tabBarController)
         } else {
