@@ -64,6 +64,47 @@ struct TabBarAccessoryControllerTests {
         #expect(customView.superview == nil)
     }
 
+    @Test func frameSizedCustomViewKeepsItsSizeAmongItems() {
+        let customView = UIView(frame: CGRect(x: 0, y: 0, width: 60, height: 30))
+        let itemsView = AccessoryItemsView()
+
+        itemsView.setItems([UIBarButtonItem(customView: customView)])
+
+        let size = itemsView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+        #expect(size == CGSize(width: 60, height: 30))
+    }
+
+    @Test func changedCustomViewReplacesTheShownView() {
+        let firstView = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        let secondView = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        let item = UIBarButtonItem(customView: firstView)
+        let itemsView = AccessoryItemsView()
+        itemsView.setItems([item])
+        #expect(firstView.isDescendant(of: itemsView))
+
+        item.customView = secondView
+        itemsView.setItems([item])
+
+        #expect(secondView.isDescendant(of: itemsView))
+        #expect(firstView.superview == nil)
+        #expect(firstView.translatesAutoresizingMaskIntoConstraints)
+    }
+
+    @Test func deallocatedItemsRestoreCustomViewAutoresizing() {
+        let customView = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        weak var weakItemsView: AccessoryItemsView?
+
+        do {
+            let itemsView = AccessoryItemsView()
+            weakItemsView = itemsView
+            itemsView.setItems([UIBarButtonItem(customView: customView)])
+            #expect(!customView.translatesAutoresizingMaskIntoConstraints)
+        }
+
+        #expect(weakItemsView == nil)
+        #expect(customView.translatesAutoresizingMaskIntoConstraints)
+    }
+
     @Test func ownershipLossDoesNotDiscardReentrantReplacement() {
         let tabBarController = makeTestTabBarController()
         let renderer = ReentrantAccessoryRenderer()

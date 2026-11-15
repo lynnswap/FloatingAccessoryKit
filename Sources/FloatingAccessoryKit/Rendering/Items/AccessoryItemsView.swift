@@ -13,10 +13,14 @@ final class AccessoryItemsView: UIView {
 
     private final class Entry {
         let item: UIBarButtonItem
+        /// The item's custom view when the entry was made. An item whose
+        /// custom view has changed since gets a new entry.
+        let customView: UIView?
         let view: UIView
 
         init(item: UIBarButtonItem, view: UIView) {
             self.item = item
+            customView = item.customView
             self.view = view
         }
     }
@@ -61,6 +65,14 @@ final class AccessoryItemsView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    isolated deinit {
+        // Custom views outlive the items view; give them back in the layout
+        // mode their owners left them in.
+        for view in entries.map(\.view) + leavingViews {
+            (view as? AccessoryItemSlotView)?.releaseContentView()
+        }
+    }
+
     /// Replaces the items without animation.
     func setItems(_ items: [UIBarButtonItem]) {
         let transition = prepareTransition(to: items)
@@ -80,7 +92,9 @@ final class AccessoryItemsView: UIView {
         var newEntries: [Entry] = []
         var arriving: [Entry] = []
         for item in items where !item.isHidden {
-            if let entry = entries.first(where: { $0.item === item }) {
+            if let entry = entries.first(where: {
+                $0.item === item && $0.customView === item.customView
+            }) {
                 newEntries.append(entry)
             } else {
                 let entry = Entry(item: item, view: makeView(for: item))
@@ -200,6 +214,8 @@ final class AccessoryItemsView: UIView {
 private final class AccessoryItemSlotView: UIView {
     private let contentView: UIView
     private let originalTranslatesAutoresizingMaskIntoConstraints: Bool
+    private var frameSizeConstraints: [NSLayoutConstraint] = []
+    private var isContentViewReleased = false
 
     init(contentView: UIView) {
         self.contentView = contentView
@@ -210,6 +226,7 @@ private final class AccessoryItemSlotView: UIView {
 
         clipsToBounds = true
         contentView.translatesAutoresizingMaskIntoConstraints = false
+        frameSizeConstraints = Self.makeFrameSizeConstraints(for: contentView)
         addSubview(contentView)
         let trailing = contentView.trailingAnchor.constraint(equalTo: trailingAnchor)
         let bottom = contentView.bottomAnchor.constraint(equalTo: bottomAnchor)
@@ -220,7 +237,7 @@ private final class AccessoryItemSlotView: UIView {
             contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
             trailing,
             bottom
-        ])
+        ] + frameSizeConstraints)
     }
 
     @available(*, unavailable)
@@ -228,12 +245,54 @@ private final class AccessoryItemSlotView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Gives the view back to its owner.
+    ///
+    /// The autoresizing mode is restored unless another view has taken the
+    /// content view in the meantime. UIKit detaches an item's previous custom
+    /// view when the item gets a new one, which leaves it without a superview.
     func releaseContentView() {
-        guard contentView.superview === self else {
+        NSLayoutConstraint.deactivate(frameSizeConstraints)
+        frameSizeConstraints = []
+        if contentView.superview === self {
+            contentView.removeFromSuperview()
+        }
+        guard contentView.superview == nil, !isContentViewReleased else {
             return
         }
-        contentView.removeFromSuperview()
+        isContentViewReleased = true
         contentView.translatesAutoresizingMaskIntoConstraints =
             originalTranslatesAutoresizingMaskIntoConstraints
+    }
+
+    /// Keeps the frame size of a view that Auto Layout cannot size.
+    ///
+    /// A custom view laid out by its frame has no intrinsic size or size
+    /// constraints, so it measures zero once its autoresizing mask no longer
+    /// becomes constraints.
+    private static func makeFrameSizeConstraints(
+        for contentView: UIView
+    ) -> [NSLayoutConstraint] {
+        // The autoresizing constraints stay in a measurement until the view
+        // updates its constraints.
+        contentView.setNeedsUpdateConstraints()
+        contentView.updateConstraintsIfNeeded()
+        let fittingSize = contentView.systemLayoutSizeFitting(
+            UIView.layoutFittingCompressedSize,
+            withHorizontalFittingPriority: .fittingSizeLevel,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        let frameSize = contentView.bounds.size
+        var constraints: [NSLayoutConstraint] = []
+        if fittingSize.width <= 0, frameSize.width > 0 {
+            constraints.append(
+                contentView.widthAnchor.constraint(equalToConstant: frameSize.width)
+            )
+        }
+        if fittingSize.height <= 0, frameSize.height > 0 {
+            constraints.append(
+                contentView.heightAnchor.constraint(equalToConstant: frameSize.height)
+            )
+        }
+        return constraints
     }
 }
