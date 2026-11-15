@@ -38,11 +38,13 @@ final class SystemBarItemsInstallation {
     private weak var revealedToolbar: UINavigationController?
     private var originalAdditionalOverflowItems: UIDeferredMenuElement?
     private var trailingGroup: UIBarButtonItemGroup?
+    private var overflow: (item: UIBarButtonItem, sources: [UIBarButtonItem])?
     /// The accessory items placed among the app's own `rightBarButtonItems`.
     /// Assigning `trailingItemGroups` would discard the app's items, so the
     /// accessory items join them instead.
     private var rightBarButtonItems: [UIBarButtonItem]?
     private var itemRestorations: [@MainActor () -> Void] = []
+    private let spaceItem = UIBarButtonItem.flexibleSpace()
 
     init(viewController: UIViewController, placement: Placement) {
         self.viewController = viewController
@@ -77,7 +79,7 @@ final class SystemBarItemsInstallation {
                 }
                 barItems = [primaryItem]
                 if !otherItems.isEmpty {
-                    let overflowItem = Self.makeOverflowItem(for: otherItems)
+                    let overflowItem = overflowItem(for: otherItems)
                     if items.first === primaryItem {
                         barItems.append(overflowItem)
                     } else {
@@ -176,8 +178,12 @@ final class SystemBarItemsInstallation {
         if !isInstalled {
             originalToolbarItems = viewController.toolbarItems
         }
-        // The space keeps the items at the trailing end of the toolbar.
-        viewController.setToolbarItems([.flexibleSpace()] + items, animated: animated)
+        // The app's own items keep the leading end, and the space keeps the
+        // accessory items at the trailing end.
+        let toolbarItems = (originalToolbarItems ?? []) + [spaceItem] + items
+        if viewController.toolbarItems?.elementsEqual(toolbarItems, by: { $0 === $1 }) != true {
+            viewController.setToolbarItems(toolbarItems, animated: animated)
+        }
         if revealedToolbar == nil,
            let navigationController = viewController.navigationController,
            RevealedToolbarUsers.add(to: navigationController, animated: animated) {
@@ -192,13 +198,18 @@ final class SystemBarItemsInstallation {
         itemRestorations = []
     }
 
-    private static func makeOverflowItem(
-        for items: [UIBarButtonItem]
-    ) -> UIBarButtonItem {
-        UIBarButtonItem(
+    /// The item whose menu holds `items`. The same items keep the same item,
+    /// so setting them again leaves the bar as it is.
+    private func overflowItem(for items: [UIBarButtonItem]) -> UIBarButtonItem {
+        if let overflow, overflow.sources.elementsEqual(items, by: { $0 === $1 }) {
+            return overflow.item
+        }
+        let item = UIBarButtonItem(
             image: UIImage(systemName: "ellipsis"),
-            menu: UIMenu(children: [makeOverflowElement(for: items)])
+            menu: UIMenu(children: [Self.makeOverflowElement(for: items)])
         )
+        overflow = (item, items)
+        return item
     }
 
     /// Reads the items when the menu opens, so the menu follows changes that

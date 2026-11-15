@@ -11,9 +11,12 @@ struct ViewControllerAccessoryItemsTests {
         navigationController.loadViewIfNeeded()
         let primaryItem = UIBarButtonItem(systemItem: .add)
         let otherItem = UIBarButtonItem(systemItem: .action)
+        let existingItem = UIBarButtonItem(systemItem: .close)
+        content.toolbarItems = [existingItem]
 
         content.traitOverrides.horizontalSizeClass = .compact
         content.setFloatingAccessoryItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(content.toolbarItems?.first === existingItem)
         #expect(
             content.toolbarItems?.suffix(2).elementsEqual([otherItem, primaryItem]) { $0 === $1 } == true
         )
@@ -22,7 +25,7 @@ struct ViewControllerAccessoryItemsTests {
 
         content.traitOverrides.horizontalSizeClass = .regular
         content.updateTraitsIfNeeded()
-        #expect(content.toolbarItems == nil)
+        #expect(content.toolbarItems == [existingItem])
         #expect(navigationController.isToolbarHidden)
         #expect(
             content.navigationItem.trailingItemGroups.last?.barButtonItems

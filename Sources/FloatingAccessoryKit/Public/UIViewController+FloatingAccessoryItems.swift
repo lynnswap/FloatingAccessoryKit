@@ -32,8 +32,9 @@ public extension UIViewController {
     /// While items are installed, FloatingAccessoryKit owns this view
     /// controller's `toolbarItems` and its navigation item's
     /// `additionalOverflowItems`, and adds the shown items to the navigation
-    /// item's `trailingItemGroups` or `rightBarButtonItems`. Removing the
-    /// items restores them.
+    /// item's `trailingItemGroups` or `rightBarButtonItems`. The toolbar items
+    /// the view controller had before stay at the leading end of the toolbar.
+    /// Removing the items restores them.
     ///
     /// An item that goes to the overflow menu appears there with its
     /// `menuRepresentation`, or with its title and image. Give such an item a
