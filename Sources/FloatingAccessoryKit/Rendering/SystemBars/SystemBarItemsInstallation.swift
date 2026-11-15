@@ -1,3 +1,4 @@
+import ObjectiveC
 import UIKit
 
 /// Shows accessory items in one of a view controller's own system bars, and
@@ -34,7 +35,7 @@ final class SystemBarItemsInstallation {
 
     private var isInstalled = false
     private var originalToolbarItems: [UIBarButtonItem]?
-    private var revealedToolbar: UINavigationController?
+    private weak var revealedToolbar: UINavigationController?
     private var originalAdditionalOverflowItems: UIDeferredMenuElement?
     private var trailingGroup: UIBarButtonItemGroup?
     private var itemRestorations: [@MainActor () -> Void] = []
@@ -123,7 +124,9 @@ final class SystemBarItemsInstallation {
         case .toolbar, .verticalToolbar:
             viewController.setToolbarItems(originalToolbarItems, animated: animated)
             originalToolbarItems = nil
-            revealedToolbar?.setToolbarHidden(true, animated: animated)
+            if let revealedToolbar {
+                RevealedToolbarUsers.remove(from: revealedToolbar, animated: animated)
+            }
             revealedToolbar = nil
         case .navigationBar:
             let navigationItem = viewController.navigationItem
@@ -145,9 +148,9 @@ final class SystemBarItemsInstallation {
         }
         // The space keeps the items at the trailing end of the toolbar.
         viewController.setToolbarItems([.flexibleSpace()] + items, animated: animated)
-        if let navigationController = viewController.navigationController,
-           navigationController.isToolbarHidden {
-            navigationController.setToolbarHidden(false, animated: animated)
+        if revealedToolbar == nil,
+           let navigationController = viewController.navigationController,
+           RevealedToolbarUsers.add(to: navigationController, animated: animated) {
             revealedToolbar = navigationController
         }
     }
@@ -218,5 +221,63 @@ final class SystemBarItemsInstallation {
                 )
             }
         }
+    }
+}
+
+/// Counts the installations that rely on a toolbar FloatingAccessoryKit made
+/// visible, so the toolbar hides again only when the last one leaves.
+@MainActor
+private final class RevealedToolbarUsers {
+    private static var associationKey: UInt8 = 0
+    private var count = 1
+
+    /// Returns whether the navigation controller's toolbar is one that
+    /// FloatingAccessoryKit made visible. A toolbar the app shows itself is
+    /// left alone.
+    static func add(
+        to navigationController: UINavigationController,
+        animated: Bool
+    ) -> Bool {
+        if let users = users(of: navigationController) {
+            users.count += 1
+            return true
+        }
+        guard navigationController.isToolbarHidden else {
+            return false
+        }
+        navigationController.setToolbarHidden(false, animated: animated)
+        objc_setAssociatedObject(
+            navigationController,
+            &associationKey,
+            RevealedToolbarUsers(),
+            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+        )
+        return true
+    }
+
+    static func remove(
+        from navigationController: UINavigationController,
+        animated: Bool
+    ) {
+        guard let users = users(of: navigationController) else {
+            return
+        }
+        users.count -= 1
+        guard users.count == 0 else {
+            return
+        }
+        objc_setAssociatedObject(
+            navigationController,
+            &associationKey,
+            nil,
+            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+        )
+        navigationController.setToolbarHidden(true, animated: animated)
+    }
+
+    private static func users(
+        of navigationController: UINavigationController
+    ) -> RevealedToolbarUsers? {
+        objc_getAssociatedObject(navigationController, &associationKey) as? RevealedToolbarUsers
     }
 }

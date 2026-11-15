@@ -35,4 +35,23 @@ struct ViewControllerAccessoryItemsTests {
         #expect(content.navigationItem.additionalOverflowItems == nil)
         #expect(content.floatingAccessoryItems.isEmpty)
     }
+
+    @Test func toolbarStaysVisibleWhileAnotherViewControllerStillHasItems() {
+        let first = UIViewController()
+        let second = UIViewController()
+        let navigationController = UINavigationController(rootViewController: first)
+        navigationController.loadViewIfNeeded()
+        first.traitOverrides.horizontalSizeClass = .compact
+        second.traitOverrides.horizontalSizeClass = .compact
+
+        first.setFloatingAccessoryItems([UIBarButtonItem(systemItem: .add)])
+        navigationController.pushViewController(second, animated: false)
+        second.setFloatingAccessoryItems([UIBarButtonItem(systemItem: .action)])
+
+        first.setFloatingAccessoryItems([])
+        #expect(!navigationController.isToolbarHidden)
+
+        second.setFloatingAccessoryItems([])
+        #expect(navigationController.isToolbarHidden)
+    }
 }
