@@ -210,7 +210,12 @@ final class SystemBarItemsInstallation {
             completion(
                 items
                     .filter { !$0.isHidden }
-                    .compactMap { $0.menuRepresentation ?? makeMenuElement(for: $0) }
+                    .compactMap { item in
+                        // A disabled item never offers its own representation.
+                        item.isEnabled
+                            ? item.menuRepresentation ?? makeMenuElement(for: item)
+                            : makeMenuElement(for: item)
+                    }
             )
         }
     }

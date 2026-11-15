@@ -23,7 +23,8 @@ public extension UIViewController {
     ///   enclosing navigation controller. FloatingAccessoryKit shows the
     ///   toolbar when it is hidden, so call this method once the view
     ///   controller is in its navigation controller, such as from
-    ///   `viewDidLoad()`.
+    ///   `viewDidLoad()`. The toolbar stays visible until the items are
+    ///   removed, also while another view controller is pushed on top.
     /// - In a regular width, `primaryItem` appears at the trailing side of the
     ///   navigation bar and the other items go to the bar's overflow menu.
     ///   Without a primary item, every item appears in the navigation bar.
