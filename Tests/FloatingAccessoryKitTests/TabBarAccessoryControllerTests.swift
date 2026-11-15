@@ -75,7 +75,11 @@ struct TabBarAccessoryControllerTests {
         }
         let content = UIViewController()
         let navigationController = UINavigationController(rootViewController: content)
-        let tabBarController = makeTestTabBarController(viewControllers: [navigationController])
+        // A tab may wrap its navigation controller in a container of its own.
+        let tabContainer = UIViewController()
+        tabContainer.addChild(navigationController)
+        navigationController.didMove(toParent: tabContainer)
+        let tabBarController = makeTestTabBarController(viewControllers: [tabContainer])
         let renderer = ReentrantAccessoryRenderer()
         let controller = TabBarAccessoryController(
             tabBarController: tabBarController,
