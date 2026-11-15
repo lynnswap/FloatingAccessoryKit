@@ -129,7 +129,9 @@ public final class TabBarAccessoryController {
     ///   the system bar that UIKit lays out in the tab bar's column.
     ///   `primaryItem` takes the prominent style there and the other items
     ///   share one menu; without a primary item, every item appears in the
-    ///   bar. The items belong to the view controller on top of the selected
+    ///   bar. An item in the menu appears with its `menuRepresentation`, or
+    ///   with its title and image, so give it a title or an image; a system
+    ///   item has neither. The items belong to the view controller on top of the selected
     ///   tab's navigation controller, and FloatingAccessoryKit owns that view
     ///   controller's `toolbarItems` while they are shown. The items move when
     ///   the selected tab changes; after a push or a pop, set the items again.

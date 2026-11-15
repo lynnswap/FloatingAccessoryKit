@@ -54,4 +54,20 @@ struct ViewControllerAccessoryItemsTests {
         second.setFloatingAccessoryItems([])
         #expect(navigationController.isToolbarHidden)
     }
+
+    @Test func existingRightBarButtonItemsStayNextToTheAccessoryItems() {
+        let content = UIViewController()
+        let navigationController = UINavigationController(rootViewController: content)
+        navigationController.loadViewIfNeeded()
+        let existingItem = UIBarButtonItem(systemItem: .edit)
+        let primaryItem = UIBarButtonItem(systemItem: .add)
+        content.navigationItem.rightBarButtonItems = [existingItem]
+        content.traitOverrides.horizontalSizeClass = .regular
+
+        content.setFloatingAccessoryItems([primaryItem], primaryItem: primaryItem)
+        #expect(content.navigationItem.rightBarButtonItems == [primaryItem, existingItem])
+
+        content.setFloatingAccessoryItems([])
+        #expect(content.navigationItem.rightBarButtonItems == [existingItem])
+    }
 }

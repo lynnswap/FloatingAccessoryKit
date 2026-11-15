@@ -30,8 +30,13 @@ public extension UIViewController {
     ///
     /// While items are installed, FloatingAccessoryKit owns this view
     /// controller's `toolbarItems` and its navigation item's
-    /// `additionalOverflowItems`, and adds a group to the navigation item's
-    /// `trailingItemGroups`. Removing the items restores them.
+    /// `additionalOverflowItems`, and adds the shown items to the navigation
+    /// item's `trailingItemGroups` or `rightBarButtonItems`. Removing the
+    /// items restores them.
+    ///
+    /// An item that goes to the overflow menu appears there with its
+    /// `menuRepresentation`, or with its title and image. Give such an item a
+    /// title or an image; a system item has neither.
     ///
     /// - Parameters:
     ///   - items: The items to show, in layout order. Pass an empty array to
@@ -110,6 +115,12 @@ private final class ViewControllerAccessoryItemsCoordinator {
         self.items = items
         self.primaryItem = primaryItem
         install(animated: animated)
+    }
+
+    isolated deinit {
+        // A view controller that goes away with items installed gives the
+        // shared toolbar back.
+        installation?.uninstall(animated: false)
     }
 
     func remove(animated: Bool) {

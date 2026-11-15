@@ -81,8 +81,9 @@ viewController.setFloatingAccessoryItems(
   navigation bar and the other items go to the bar's overflow menu.
 
 While items are in a system bar, FloatingAccessoryKit owns that view
-controller's `toolbarItems`, or its navigation item's `additionalOverflowItems`
-and one of its `trailingItemGroups`, and restores them when the items leave.
+controller's `toolbarItems`, or its navigation item's `additionalOverflowItems`,
+and restores them when the items leave. An item that goes to a menu needs a
+title or an image, or a `menuRepresentation`.
 
 ## Content Updates
 

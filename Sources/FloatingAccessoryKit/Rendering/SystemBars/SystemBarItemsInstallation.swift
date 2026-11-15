@@ -38,6 +38,9 @@ final class SystemBarItemsInstallation {
     private weak var revealedToolbar: UINavigationController?
     private var originalAdditionalOverflowItems: UIDeferredMenuElement?
     private var trailingGroup: UIBarButtonItemGroup?
+    /// The app's own `rightBarButtonItems`. Assigning `trailingItemGroups`
+    /// would discard them, so the accessory items join them instead.
+    private var originalRightBarButtonItems: [UIBarButtonItem]?
     private var itemRestorations: [@MainActor () -> Void] = []
 
     init(viewController: UIViewController, placement: Placement) {
@@ -95,13 +98,23 @@ final class SystemBarItemsInstallation {
             let navigationItem = viewController.navigationItem
             if !isInstalled {
                 originalAdditionalOverflowItems = navigationItem.additionalOverflowItems
+                if navigationItem.trailingItemGroups.isEmpty,
+                   let rightBarButtonItems = navigationItem.rightBarButtonItems,
+                   !rightBarButtonItems.isEmpty {
+                    originalRightBarButtonItems = rightBarButtonItems
+                }
             }
-            let group = UIBarButtonItemGroup.fixedGroup(
-                items: primaryItem.map { [$0] } ?? items
-            )
-            navigationItem.trailingItemGroups = navigationItem.trailingItemGroups
-                .filter { $0 !== trailingGroup } + [group]
-            trailingGroup = group
+            let shownItems = primaryItem.map { [$0] } ?? items
+            if let originalRightBarButtonItems {
+                // The first right item is the one at the trailing edge.
+                navigationItem.rightBarButtonItems =
+                    shownItems.reversed() + originalRightBarButtonItems
+            } else {
+                let group = UIBarButtonItemGroup.fixedGroup(items: shownItems)
+                navigationItem.trailingItemGroups = navigationItem.trailingItemGroups
+                    .filter { $0 !== trailingGroup } + [group]
+                trailingGroup = group
+            }
             navigationItem.additionalOverflowItems = primaryItem == nil || otherItems.isEmpty
                 ? originalAdditionalOverflowItems
                 : Self.makeOverflowElement(for: otherItems)
@@ -116,6 +129,11 @@ final class SystemBarItemsInstallation {
 
         isInstalled = false
         restoreItems()
+        // The toolbar is released also when the view controller is gone.
+        if let revealedToolbar {
+            RevealedToolbarUsers.remove(from: revealedToolbar, animated: animated)
+        }
+        revealedToolbar = nil
         guard let viewController else {
             return
         }
@@ -124,14 +142,15 @@ final class SystemBarItemsInstallation {
         case .toolbar, .verticalToolbar:
             viewController.setToolbarItems(originalToolbarItems, animated: animated)
             originalToolbarItems = nil
-            if let revealedToolbar {
-                RevealedToolbarUsers.remove(from: revealedToolbar, animated: animated)
-            }
-            revealedToolbar = nil
         case .navigationBar:
             let navigationItem = viewController.navigationItem
-            navigationItem.trailingItemGroups = navigationItem.trailingItemGroups
-                .filter { $0 !== trailingGroup }
+            if let originalRightBarButtonItems {
+                navigationItem.rightBarButtonItems = originalRightBarButtonItems
+            } else {
+                navigationItem.trailingItemGroups = navigationItem.trailingItemGroups
+                    .filter { $0 !== trailingGroup }
+            }
+            originalRightBarButtonItems = nil
             trailingGroup = nil
             navigationItem.additionalOverflowItems = originalAdditionalOverflowItems
             originalAdditionalOverflowItems = nil
