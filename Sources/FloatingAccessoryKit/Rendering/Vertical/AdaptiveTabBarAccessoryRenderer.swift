@@ -58,7 +58,7 @@ final class AdaptiveTabBarAccessoryRenderer: TabBarAccessoryRendering {
         animated: Bool,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {
-        guard Self.hasVerticalTabBar(tabBarController) == usesVertical else {
+        guard tabBarController.hasVerticalTabBar == usesVertical else {
             return switchRenderer(
                 from: previousState,
                 to: state,
@@ -77,7 +77,7 @@ final class AdaptiveTabBarAccessoryRenderer: TabBarAccessoryRendering {
         _ state: TabBarAccessoryState,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {
-        guard Self.hasVerticalTabBar(tabBarController) == usesVertical else {
+        guard tabBarController.hasVerticalTabBar == usesVertical else {
             return switchRenderer(
                 from: state,
                 to: state,
@@ -112,11 +112,12 @@ final class AdaptiveTabBarAccessoryRenderer: TabBarAccessoryRendering {
             in: tabBarController
         )
     }
+}
 
-    private static func hasVerticalTabBar(
-        _ tabBarController: UITabBarController
-    ) -> Bool {
-        let bounds = tabBarController.tabBar.bounds
-        return bounds.height > bounds.width
+extension UITabBarController {
+    /// Whether the tab bar runs along a side of the screen instead of the
+    /// bottom edge.
+    var hasVerticalTabBar: Bool {
+        tabBar.bounds.height > tabBar.bounds.width
     }
 }

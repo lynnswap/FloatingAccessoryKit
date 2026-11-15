@@ -68,6 +68,52 @@ struct TabBarAccessoryControllerTests {
         #expect(glassView.layer.animationKeys() == nil)
     }
 
+    @available(iOS 26.0, *)
+    @Test func itemsUseTheSelectedNavigationControllersToolbarAlongAVerticalTabBar() {
+        guard SystemBarItemsInstallation.supportsVerticalToolbar else {
+            return
+        }
+        let content = UIViewController()
+        let navigationController = UINavigationController(rootViewController: content)
+        let tabBarController = makeTestTabBarController(viewControllers: [navigationController])
+        let renderer = ReentrantAccessoryRenderer()
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: renderer
+        )
+        let primaryItem = UIBarButtonItem(systemItem: .add)
+        let otherItem = UIBarButtonItem(systemItem: .action)
+        let horizontalFrame = tabBarController.tabBar.frame
+
+        tabBarController.tabBar.frame = CGRect(x: 0, y: 0, width: 64, height: 300)
+        controller.setItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(renderer.renderedStates.allSatisfy { $0.contentView == nil })
+        #expect(content.toolbarItems?.last === primaryItem)
+        #expect(content.toolbarItems?.contains { $0 === otherItem } == false)
+        #expect(primaryItem.style == .prominent)
+        #expect(!navigationController.isToolbarHidden)
+        #expect(controller.items == [otherItem, primaryItem])
+
+        // The items follow the tab bar back without being set again.
+        tabBarController.tabBar.frame = horizontalFrame
+        #expect(renderer.renderedStates.last?.contentView != nil)
+        #expect(content.toolbarItems == nil)
+        #expect(primaryItem.style == .plain)
+        #expect(navigationController.isToolbarHidden)
+    }
+
+    @Test func itemButtonDrawsInTheItemsTintColor() {
+        let item = UIBarButtonItem(image: UIImage(systemName: "plus"))
+        let button = AccessoryItemButton(item: item)
+        #expect(button.configuration?.baseForegroundColor == nil)
+
+        item.tintColor = .systemRed
+        #expect(button.configuration?.baseForegroundColor == .systemRed)
+
+        item.tintColor = nil
+        #expect(button.configuration?.baseForegroundColor == nil)
+    }
+
     @Test func removingItemsRestoresCustomViewAutoresizing() {
         let controller = TabBarAccessoryController(
             tabBarController: makeTestTabBarController(),

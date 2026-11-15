@@ -43,6 +43,49 @@ final class MainTabBarController: UITabBarController {
 }
 ```
 
+## Bar Button Items
+
+Pass `UIBarButtonItem`s instead of a view to let FloatingAccessoryKit choose
+where the items appear.
+
+For the view controllers of a tab bar controller, set the items on the
+accessory controller:
+
+```swift
+floatingAccessoryController.setItems(
+    [shareItem, composeItem],
+    primaryItem: composeItem,
+    animated: true
+)
+```
+
+- Along a horizontal tab bar, the items appear as the accessory content.
+- Along a vertical tab bar, on iOS 27.1+, the items appear in the system bar in
+  the tab bar's column. The primary item takes the prominent style and the
+  other items share one menu. The items belong to the view controller on top of
+  the selected tab's navigation controller; after a push or a pop, set the
+  items again. This placement needs a build with Xcode 27.2 or later.
+
+For a view controller that is shown without a tab bar, set the items on the
+view controller:
+
+```swift
+viewController.setFloatingAccessoryItems(
+    [shareItem, composeItem],
+    primaryItem: composeItem
+)
+```
+
+- In a compact width, or while the navigation bar is hidden, the items appear
+  in the navigation controller's toolbar.
+- In a regular width, the primary item appears at the trailing side of the
+  navigation bar and the other items go to the bar's overflow menu.
+
+While items are in a system bar, FloatingAccessoryKit owns that view
+controller's `toolbarItems`, or its navigation item's `additionalOverflowItems`,
+and restores them when the items leave. An item that goes to a menu needs a
+title or an image, or a `menuRepresentation`.
+
 ## Content Updates
 
 Layout-driven content-size changes are measured automatically. If you change a

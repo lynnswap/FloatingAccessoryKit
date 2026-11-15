@@ -62,6 +62,9 @@ final class AccessoryItemButton: UIButton {
         configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
             scale: .medium
         )
+        // Inside the accessory's glass, a plain button draws in the label
+        // color whatever its tint color is, so the item's tint is spelled out.
+        configuration.baseForegroundColor = item.tintColor
         self.configuration = configuration
 
         isEnabled = item.isEnabled

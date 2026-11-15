@@ -25,5 +25,23 @@ public func exerciseFloatingAccessoryPublicAPI(
     _ = accessoryController.position
     _ = accessoryController.isHidden
 
+    let item = UIBarButtonItem(systemItem: .add)
+    accessoryController.setItems(
+        [item],
+        primaryItem: item,
+        position: .trailing,
+        animated: false
+    )
+    _ = accessoryController.items
+
     accessoryController.removeContent(animated: false)
+
+    let viewController = UIViewController()
+    viewController.setFloatingAccessoryItems(
+        [item],
+        primaryItem: item,
+        animated: false
+    )
+    _ = viewController.floatingAccessoryItems
+    viewController.setFloatingAccessoryItems([])
 }
