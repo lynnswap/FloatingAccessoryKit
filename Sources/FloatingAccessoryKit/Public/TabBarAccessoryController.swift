@@ -120,8 +120,9 @@ public final class TabBarAccessoryController {
     ///
     /// Each button follows its item's image, title, primary action or
     /// target-action, menu, enabled state, hidden state, tint color, and
-    /// accessibility label and identifier. An item with a custom view shows
-    /// that view. Space items are not supported.
+    /// accessibility label and identifier. An item without a tint color uses
+    /// the label color, as it does in a system bar. An item with a custom view
+    /// shows that view. Space items are not supported.
     ///
     /// This operation replaces a content view installed with
     /// ``setContentView(_:position:animated:)``. Passing an empty array removes
