@@ -43,6 +43,12 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         animated: Bool,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {
+        // Before the accessory is installed, so UIKit never animates the tab
+        // bar to the accessory's width.
+        NativeTabBarWidthPreservation.setPreserved(
+            state.preservesTabBarWidth,
+            for: tabBarController.tabBar
+        )
         let contentChanged = previousState.contentView !== state.contentView
         if contentChanged {
             removeOwnedPresentation(
@@ -122,6 +128,10 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         _ state: TabBarAccessoryState,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {
+        NativeTabBarWidthPreservation.setPreserved(
+            state.preservesTabBarWidth,
+            for: tabBarController.tabBar
+        )
         guard let contentView = state.contentView else {
             return .applied
         }

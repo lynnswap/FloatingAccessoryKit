@@ -116,6 +116,16 @@ The view passed to `setContentView` is foreground content. Do not add your own c
 
 On iOS 26+, FloatingAccessoryKit uses the native `UITabAccessory` presentation without adding another background. On iOS 18, FloatingAccessoryKit adds a matching overlay background around the content.
 
+## Tab Bar Width
+
+On iOS 26+, UIKit stretches the tab bar to the width of its `UITabAccessory`, so a tab bar with few tabs spans the screen while the accessory is shown. Set `preservesTabBarWidth` to keep the tab bar as wide as it is without an accessory:
+
+```swift
+floatingAccessoryController.preservesTabBarWidth = true
+```
+
+The accessory then follows the margins UIKit gives an accessory that stands apart from the tab bar. The default is `false`. The value has no effect on iOS 18, along a vertical tab bar, or where the system doesn't support it.
+
 ## Tab Bar Minimization
 
 On iOS 26+, use UIKit's `tabBarMinimizeBehavior` when you want the tab bar to minimize while scrolling.

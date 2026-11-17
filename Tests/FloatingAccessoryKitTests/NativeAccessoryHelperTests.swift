@@ -597,6 +597,49 @@ struct NativeAccessoryHelperTests {
 
         #expect(container.frame == CGRect(x: 10, y: 20, width: 200, height: 48))
     }
+
+    @Test func widthPreservationWithholdsAccessoryFromHostedElements() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        let provider = TabBarVisualProvider()
+        let otherProvider = TabBarVisualProvider()
+        provider.hostedElements = 0b101
+
+        NativeTabBarWidthPreservation.setPreserved(true, forVisualProvider: provider)
+        #expect(provider.hostedElements == 0b001)
+
+        provider.hostedElements = 0b100
+        otherProvider.hostedElements = 0b100
+        NativeTabBarWidthPreservation.setPreserved(true, forVisualProvider: provider)
+        #expect(provider.hostedElements == 0)
+        #expect(otherProvider.hostedElements == 0b100)
+
+        NativeTabBarWidthPreservation.setPreserved(false, forVisualProvider: provider)
+        NativeTabBarWidthPreservation.setPreserved(false, forVisualProvider: provider)
+        #expect(provider.hostedElements == 0b100)
+    }
+
+    @Test func widthPreservationLeavesObjectsWithoutHostedElementsAlone() {
+        guard #available(iOS 26.0, *) else {
+            return
+        }
+
+        #expect(
+            NativeTabBarWidthPreservation.setPreserved(true, forVisualProvider: NSObject())
+                == false
+        )
+
+        let tabBar = makeTestTabBarController().tabBar
+        NativeTabBarWidthPreservation.setPreserved(true, for: tabBar)
+        NativeTabBarWidthPreservation.setPreserved(true, for: tabBar)
+        NativeTabBarWidthPreservation.setPreserved(false, for: tabBar)
+    }
+}
+
+private final class TabBarVisualProvider: NSObject {
+    @objc dynamic var hostedElements = 0
 }
 
 private final class NativeEnvironmentObservationCounter: @unchecked Sendable {

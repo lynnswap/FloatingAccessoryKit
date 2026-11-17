@@ -5,6 +5,7 @@ struct TabBarAccessoryState {
     var contentView: UIView?
     var position: TabBarAccessoryController.Position = .trailing
     var isHidden = false
+    var preservesTabBarWidth = false
 }
 
 enum TabBarAccessoryRenderResult {
