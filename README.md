@@ -64,7 +64,8 @@ floatingAccessoryController.setItems(
   the tab bar's column. The primary item takes the prominent style and the
   other items share one menu. The items belong to the view controller on top of
   the selected tab's navigation controller; after a push or a pop, set the
-  items again. This placement needs a build with Xcode 27.2 or later.
+  items again. A change that keeps an item in the bar is applied without
+  animation. This placement needs a build with Xcode 27.2 or later.
 
 For a view controller that is shown without a tab bar, set the items on the
 view controller:

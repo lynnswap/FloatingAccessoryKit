@@ -106,6 +106,28 @@ struct TabBarAccessoryControllerTests {
         #expect(navigationController.isToolbarHidden)
     }
 
+    @available(iOS 26.0, *)
+    @Test func itemThatStaysAlongAVerticalTabBarIsNotAnimated() {
+        guard SystemBarItemsInstallation.supportsVerticalToolbar else {
+            return
+        }
+        let content = ToolbarAnimationRecordingViewController()
+        let navigationController = UINavigationController(rootViewController: content)
+        let tabBarController = makeTestTabBarController(viewControllers: [navigationController])
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: ReentrantAccessoryRenderer()
+        )
+        let primaryItem = UIBarButtonItem(systemItem: .add)
+        let otherItem = UIBarButtonItem(systemItem: .action)
+
+        tabBarController.tabBar.frame = CGRect(x: 0, y: 0, width: 64, height: 300)
+        controller.setItems([primaryItem], primaryItem: primaryItem, animated: true)
+        controller.setItems([otherItem, primaryItem], primaryItem: primaryItem, animated: true)
+        #expect(content.toolbarItems?.count == 3)
+        #expect(content.toolbarItemAnimations == [true, false])
+    }
+
     @Test func itemButtonDrawsInTheItemsTintColor() {
         let item = UIBarButtonItem(image: UIImage(systemName: "plus"))
         let button = AccessoryItemButton(item: item)
