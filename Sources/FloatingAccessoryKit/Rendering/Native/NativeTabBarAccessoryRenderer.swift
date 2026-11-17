@@ -43,6 +43,59 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
         animated: Bool,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {
+        preservingTabBarWidth(for: state, in: tabBarController) {
+            renderPresentation(
+                from: previousState,
+                to: state,
+                animated: animated,
+                in: tabBarController
+            )
+        }
+    }
+
+    func update(
+        _ state: TabBarAccessoryState,
+        in tabBarController: UITabBarController
+    ) -> TabBarAccessoryRenderResult {
+        preservingTabBarWidth(for: state, in: tabBarController) {
+            updatePresentation(state, in: tabBarController)
+        }
+    }
+
+    /// Preserves the tab bar's width only while this renderer shows its own
+    /// accessory, so an accessory the app installs itself keeps UIKit's
+    /// layout.
+    private func preservingTabBarWidth(
+        for state: TabBarAccessoryState,
+        in tabBarController: UITabBarController,
+        _ body: () -> TabBarAccessoryRenderResult
+    ) -> TabBarAccessoryRenderResult {
+        let showsAccessory = state.contentView != nil && !state.isHidden
+        let isPreserved = state.preservesTabBarWidth && showsAccessory
+        if isPreserved {
+            // Before the accessory is installed, so UIKit never animates the
+            // tab bar to the accessory's width.
+            NativeTabBarWidthPreservation.setPreserved(
+                true,
+                for: tabBarController.tabBar
+            )
+        }
+        let result = body()
+        if !isPreserved || result == .ownershipLost {
+            NativeTabBarWidthPreservation.setPreserved(
+                false,
+                for: tabBarController.tabBar
+            )
+        }
+        return result
+    }
+
+    private func renderPresentation(
+        from previousState: TabBarAccessoryState,
+        to state: TabBarAccessoryState,
+        animated: Bool,
+        in tabBarController: UITabBarController
+    ) -> TabBarAccessoryRenderResult {
         let contentChanged = previousState.contentView !== state.contentView
         if contentChanged {
             removeOwnedPresentation(
@@ -110,15 +163,15 @@ final class NativeTabBarAccessoryRenderer: TabBarAccessoryRendering {
                 animated: animated,
                 in: tabBarController
             ) { _ in
-                result = self.update(state, in: tabBarController)
+                result = self.updatePresentation(state, in: tabBarController)
             }
             return result
         } else {
-            return update(state, in: tabBarController)
+            return updatePresentation(state, in: tabBarController)
         }
     }
 
-    func update(
+    private func updatePresentation(
         _ state: TabBarAccessoryState,
         in tabBarController: UITabBarController
     ) -> TabBarAccessoryRenderResult {

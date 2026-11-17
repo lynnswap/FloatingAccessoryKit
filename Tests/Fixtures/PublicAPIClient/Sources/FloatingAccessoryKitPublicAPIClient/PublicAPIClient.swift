@@ -24,6 +24,8 @@ public func exerciseFloatingAccessoryPublicAPI(
     _ = accessoryController.contentView
     _ = accessoryController.position
     _ = accessoryController.isHidden
+    accessoryController.preservesTabBarWidth = true
+    _ = accessoryController.preservesTabBarWidth
 
     let item = UIBarButtonItem(systemItem: .add)
     accessoryController.setItems(

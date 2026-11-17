@@ -288,6 +288,34 @@ public final class TabBarAccessoryController {
         state.isHidden
     }
 
+    /// A Boolean value that indicates whether the tab bar keeps the width that
+    /// fits its tabs while the accessory is shown.
+    ///
+    /// On iOS 26 and later, UIKit stretches a horizontal tab bar to the width
+    /// of its `UITabAccessory`, so a tab bar with few tabs spans the screen
+    /// while the accessory is shown. Set this property to `true` to keep the
+    /// tab bar as wide as it is without an accessory. The accessory then
+    /// follows the margins UIKit gives an accessory that stands apart from
+    /// the tab bar.
+    ///
+    /// The default value is `false`. The value has no effect on iOS 18, along
+    /// a vertical tab bar, or where the system doesn't support it; the tab
+    /// bar then keeps UIKit's width.
+    public var preservesTabBarWidth: Bool {
+        get {
+            state.preservesTabBarWidth
+        }
+        set {
+            guard state.preservesTabBarWidth != newValue else {
+                return
+            }
+
+            let previousState = state
+            state.preservesTabBarWidth = newValue
+            render(from: previousState, animated: false)
+        }
+    }
+
     /// Installs or replaces the accessory content view.
     ///
     /// Omitting `position` preserves the current requested placement, which is
