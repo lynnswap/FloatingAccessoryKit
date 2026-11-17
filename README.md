@@ -79,7 +79,10 @@ viewController.setFloatingAccessoryItems(
 - In a compact width, or while the navigation bar is hidden, the items appear
   in the navigation controller's toolbar.
 - In a regular width, the primary item appears at the trailing side of the
-  navigation bar and the other items go to the bar's overflow menu.
+  navigation bar and the other items go to the bar's overflow menu. The
+  navigation item's own right bar button items keep the trailing edge next to
+  the overflow button, and the accessory items stand apart on their leading
+  side.
 - Pass `placement: .toolbar` to keep the items in the toolbar whatever the
   width.
 

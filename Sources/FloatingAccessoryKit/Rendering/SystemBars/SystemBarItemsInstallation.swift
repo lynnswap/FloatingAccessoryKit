@@ -12,7 +12,9 @@ final class SystemBarItemsInstallation {
         /// primary item stands out and the other items share a menu.
         case verticalToolbar
         /// The trailing side of the navigation bar. The primary item is shown
-        /// and the other items go to the bar's overflow menu.
+        /// and the other items go to the bar's overflow menu. The app's own
+        /// right items keep the trailing edge, next to the overflow button,
+        /// and the shown items stand apart on their leading side.
         case navigationBar
     }
 
@@ -39,12 +41,15 @@ final class SystemBarItemsInstallation {
     private var originalAdditionalOverflowItems: UIDeferredMenuElement?
     private var trailingGroup: UIBarButtonItemGroup?
     private var overflow: (item: UIBarButtonItem, sources: [UIBarButtonItem])?
-    /// The accessory items placed among the app's own `rightBarButtonItems`.
+    /// The accessory items placed among the app's own `rightBarButtonItems`,
+    /// with the separator in front of them.
     /// Assigning `trailingItemGroups` would discard the app's items, so the
     /// accessory items join them instead.
     private var rightBarButtonItems: [UIBarButtonItem]?
     private var itemRestorations: [@MainActor () -> Void] = []
     private let spaceItem = UIBarButtonItem.flexibleSpace()
+    /// Splits the background that adjacent navigation bar items share.
+    private let separatorItem = UIBarButtonItem.fixedSpace(0)
 
     init(viewController: UIViewController, placement: Placement) {
         self.viewController = viewController
@@ -108,12 +113,18 @@ final class SystemBarItemsInstallation {
             }
             let shownItems = primaryItem.map { [$0] } ?? items
             if let previousItems = rightBarButtonItems {
-                // The first right item is the one at the trailing edge.
                 let appItems = (navigationItem.rightBarButtonItems ?? []).filter { item in
                     !previousItems.contains { $0 === item }
                 }
-                navigationItem.rightBarButtonItems = shownItems.reversed() + appItems
-                rightBarButtonItems = shownItems
+                // The first right item is the one at the trailing edge. The
+                // bar puts its overflow button at that edge, so the app's
+                // items there share its background, and the separator keeps
+                // the shown items in a background of their own.
+                let accessoryItems = appItems.isEmpty
+                    ? shownItems.reversed()
+                    : [separatorItem] + shownItems.reversed()
+                navigationItem.rightBarButtonItems = appItems + accessoryItems
+                rightBarButtonItems = accessoryItems
             } else {
                 let group = UIBarButtonItemGroup.fixedGroup(items: shownItems)
                 navigationItem.trailingItemGroups = navigationItem.trailingItemGroups

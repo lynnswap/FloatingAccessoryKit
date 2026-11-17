@@ -77,17 +77,34 @@ struct ViewControllerAccessoryItemsTests {
         #expect(navigationController.isToolbarHidden)
     }
 
-    @Test func existingRightBarButtonItemsStayNextToTheAccessoryItems() {
+    @Test func existingRightBarButtonItemsKeepTheTrailingEdgeApartFromTheAccessoryItems() {
         let content = UIViewController()
         let navigationController = UINavigationController(rootViewController: content)
         navigationController.loadViewIfNeeded()
         let existingItem = UIBarButtonItem(systemItem: .edit)
         let primaryItem = UIBarButtonItem(systemItem: .add)
+        let otherItem = UIBarButtonItem(title: "Other")
         content.navigationItem.rightBarButtonItems = [existingItem]
         content.traitOverrides.horizontalSizeClass = .regular
 
-        content.setFloatingAccessoryItems([primaryItem], primaryItem: primaryItem)
-        #expect(content.navigationItem.rightBarButtonItems == [primaryItem, existingItem])
+        func expectAccessoryItemsApart() {
+            let rightItems = content.navigationItem.rightBarButtonItems ?? []
+            // The first right item is the one at the trailing edge, and a space
+            // separates the primary item from the existing item.
+            #expect(rightItems.count == 3)
+            #expect(rightItems.first === existingItem)
+            #expect(rightItems.last === primaryItem)
+        }
+        content.setFloatingAccessoryItems([otherItem, primaryItem], primaryItem: primaryItem)
+        expectAccessoryItemsApart()
+
+        // Moving the items between the bars as the width changes keeps the order.
+        content.traitOverrides.horizontalSizeClass = .compact
+        content.updateTraitsIfNeeded()
+        #expect(content.navigationItem.rightBarButtonItems == [existingItem])
+        content.traitOverrides.horizontalSizeClass = .regular
+        content.updateTraitsIfNeeded()
+        expectAccessoryItemsApart()
 
         content.setFloatingAccessoryItems([])
         #expect(content.navigationItem.rightBarButtonItems == [existingItem])
