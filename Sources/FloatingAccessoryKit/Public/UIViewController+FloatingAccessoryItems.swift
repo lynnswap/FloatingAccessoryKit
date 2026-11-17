@@ -39,6 +39,9 @@ public extension UIViewController {
     /// - In a regular width, `primaryItem` appears at the trailing side of the
     ///   navigation bar and the other items go to the bar's overflow menu.
     ///   Without a primary item, every item appears in the navigation bar.
+    ///   The navigation item's existing `rightBarButtonItems` keep the
+    ///   trailing edge next to the overflow button, and the accessory items
+    ///   appear on their leading side with a background of their own.
     ///   After showing or hiding the navigation bar, set the items again.
     ///
     /// While items are installed, FloatingAccessoryKit owns this view
