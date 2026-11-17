@@ -101,7 +101,16 @@ final class SystemBarItemsInstallation {
                 }
             }
             #endif
-            setToolbarItems(barItems, of: viewController, animated: animated)
+            // With animation, UIKit builds every item of the bar again, so an
+            // item that stays would leave and form again in its place.
+            let keepsShownItem = viewController.toolbarItems?.contains { shownItem in
+                barItems.contains { $0 === shownItem }
+            } == true
+            setToolbarItems(
+                barItems,
+                of: viewController,
+                animated: animated && !keepsShownItem
+            )
         case .navigationBar:
             let navigationItem = viewController.navigationItem
             if !isInstalled {

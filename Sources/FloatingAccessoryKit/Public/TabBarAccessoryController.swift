@@ -142,6 +142,8 @@ public final class TabBarAccessoryController {
     ///   tab's navigation controller, and FloatingAccessoryKit owns that view
     ///   controller's `toolbarItems` while they are shown. The items move when
     ///   the selected tab changes; after a push or a pop, set the items again.
+    ///   A change that keeps an item in the bar is applied without animation,
+    ///   because UIKit's animation would remove that item and form it again.
     ///   A selected view controller that neither is nor contains a navigation
     ///   controller keeps the accessory presentation. Building with Xcode 27.2
     ///   or later is required; earlier versions keep the accessory

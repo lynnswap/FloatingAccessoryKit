@@ -383,3 +383,13 @@ final class ReentrantAccessoryRenderer: TabBarAccessoryRendering {
         return .applied
     }
 }
+
+/// Records whether each change of its toolbar items asked for animation.
+final class ToolbarAnimationRecordingViewController: UIViewController {
+    private(set) var toolbarItemAnimations: [Bool] = []
+
+    override func setToolbarItems(_ toolbarItems: [UIBarButtonItem]?, animated: Bool) {
+        toolbarItemAnimations.append(animated)
+        super.setToolbarItems(toolbarItems, animated: animated)
+    }
+}
