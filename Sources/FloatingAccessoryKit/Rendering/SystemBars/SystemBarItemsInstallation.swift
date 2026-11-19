@@ -209,11 +209,24 @@ final class SystemBarItemsInstallation {
         _ barItems: [UIBarButtonItem],
         primaryItem: UIBarButtonItem?
     ) {
-        var modifications: [ObjectIdentifier: ItemModification] = [:]
+        // What leaves is restored before anything is assigned, as an
+        // assignment to one item can reach another.
+        let barItemIDs = Set(barItems.map(ObjectIdentifier.init))
+        for (id, modification) in itemModifications where !barItemIDs.contains(id) {
+            modification.restore()
+            itemModifications[id] = nil
+        }
+        for item in barItems where item !== primaryItem {
+            let id = ObjectIdentifier(item)
+            if let originalStyle = itemModifications[id]?.originalStyle {
+                item.style = originalStyle
+                itemModifications[id]?.originalStyle = nil
+            }
+        }
+
         for item in barItems {
             let id = ObjectIdentifier(item)
-            var modification = itemModifications.removeValue(forKey: id)
-                ?? ItemModification(item: item)
+            var modification = itemModifications[id] ?? ItemModification(item: item)
             if item === primaryItem {
                 if modification.originalStyle == nil {
                     modification.originalStyle = item.style
@@ -221,9 +234,6 @@ final class SystemBarItemsInstallation {
                 if #available(iOS 26.0, *), item.style != .prominent {
                     item.style = .prominent
                 }
-            } else if let originalStyle = modification.originalStyle {
-                item.style = originalStyle
-                modification.originalStyle = nil
             }
             #if compiler(>=6.4.2)
             if #available(iOS 27.1, *) {
@@ -235,10 +245,8 @@ final class SystemBarItemsInstallation {
                 }
             }
             #endif
-            modifications[id] = modification
+            itemModifications[id] = modification
         }
-        restoreItems()
-        itemModifications = modifications
     }
 
     private func restoreItems() {
