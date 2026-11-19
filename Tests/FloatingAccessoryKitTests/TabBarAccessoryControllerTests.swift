@@ -128,6 +128,43 @@ struct TabBarAccessoryControllerTests {
         #expect(content.toolbarItemAnimations == [true, false])
     }
 
+    @available(iOS 26.0, *)
+    @Test func itemThatStaysAlongAVerticalTabBarIsNotAssignedItsStyleAgain() {
+        guard SystemBarItemsInstallation.supportsVerticalToolbar else {
+            return
+        }
+        let content = UIViewController()
+        let navigationController = UINavigationController(rootViewController: content)
+        let tabBarController = makeTestTabBarController(viewControllers: [navigationController])
+        let controller = TabBarAccessoryController(
+            tabBarController: tabBarController,
+            renderer: ReentrantAccessoryRenderer()
+        )
+        let primaryItem = StyleAssignmentRecordingBarButtonItem(systemItem: .add)
+        let otherItem = UIBarButtonItem(systemItem: .action)
+        let horizontalFrame = tabBarController.tabBar.frame
+
+        tabBarController.tabBar.frame = CGRect(x: 0, y: 0, width: 64, height: 300)
+        controller.setItems([primaryItem], primaryItem: primaryItem)
+        #expect(primaryItem.style == .prominent)
+        let assignments = primaryItem.styleAssignments
+
+        // Setting the items again, with or without another item, leaves the
+        // item that stays as it is.
+        controller.setItems([primaryItem], primaryItem: primaryItem)
+        controller.setItems([otherItem, primaryItem], primaryItem: primaryItem)
+        #expect(primaryItem.style == .prominent)
+        #expect(primaryItem.styleAssignments == assignments)
+
+        // The item that is no longer the primary one gets its style back.
+        controller.setItems([otherItem, primaryItem], primaryItem: otherItem)
+        #expect(primaryItem.style == .plain)
+        #expect(otherItem.style == .prominent)
+
+        tabBarController.tabBar.frame = horizontalFrame
+        #expect(otherItem.style == .plain)
+    }
+
     @Test func itemButtonDrawsInTheItemsTintColor() {
         let item = UIBarButtonItem(image: UIImage(systemName: "plus"))
         let button = AccessoryItemButton(item: item)
