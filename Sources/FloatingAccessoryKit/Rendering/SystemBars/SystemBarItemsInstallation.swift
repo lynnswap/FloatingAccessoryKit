@@ -46,7 +46,8 @@ final class SystemBarItemsInstallation {
     /// Assigning `trailingItemGroups` would discard the app's items, so the
     /// accessory items join them instead.
     private var rightBarButtonItems: [UIBarButtonItem]?
-    private var itemRestorations: [@MainActor () -> Void] = []
+    /// The items that the vertical toolbar changed, with what they had before.
+    private var itemModifications: [ObjectIdentifier: ItemModification] = [:]
     private let spaceItem = UIBarButtonItem.flexibleSpace()
     /// Splits the background that adjacent navigation bar items share.
     private let separatorItem = UIBarButtonItem.fixedSpace(0)
@@ -69,7 +70,6 @@ final class SystemBarItemsInstallation {
             items.contains { $0 === primaryItem } ? primaryItem : nil
         }
         let otherItems = items.filter { $0 !== primaryItem }
-        restoreItems()
 
         switch placement {
         case .toolbar:
@@ -77,11 +77,6 @@ final class SystemBarItemsInstallation {
         case .verticalToolbar:
             var barItems = items
             if let primaryItem {
-                let originalStyle = primaryItem.style
-                itemRestorations.append { primaryItem.style = originalStyle }
-                if #available(iOS 26.0, *) {
-                    primaryItem.style = .prominent
-                }
                 barItems = [primaryItem]
                 if !otherItems.isEmpty {
                     let overflowItem = overflowItem(for: otherItems)
@@ -92,15 +87,7 @@ final class SystemBarItemsInstallation {
                     }
                 }
             }
-            #if compiler(>=6.4.2)
-            if #available(iOS 27.1, *) {
-                for item in barItems {
-                    let originalAxisBehavior = item.axisBehavior
-                    itemRestorations.append { item.axisBehavior = originalAxisBehavior }
-                    item.axisBehavior = .verticalPreferred
-                }
-            }
-            #endif
+            modifyItems(barItems, primaryItem: primaryItem)
             // With animation, UIKit builds every item of the bar again, so an
             // item that stays would leave and form again in its place.
             let keepsShownItem = viewController.toolbarItems?.contains { shownItem in
@@ -211,11 +198,83 @@ final class SystemBarItemsInstallation {
         }
     }
 
-    private func restoreItems() {
-        for restore in itemRestorations {
-            restore()
+    /// Gives the items of a vertical toolbar their style and axis, and gives
+    /// the items that left what they had before.
+    ///
+    /// An item that stays is not assigned again. UIKit builds an item's view
+    /// again on every assignment, and observes the item's state: assigning
+    /// the same values on every pass keeps waking the observations that
+    /// follow the bar.
+    private func modifyItems(
+        _ barItems: [UIBarButtonItem],
+        primaryItem: UIBarButtonItem?
+    ) {
+        // What leaves is restored before anything is assigned, as an
+        // assignment to one item can reach another.
+        let barItemIDs = Set(barItems.map(ObjectIdentifier.init))
+        for (id, modification) in itemModifications where !barItemIDs.contains(id) {
+            modification.restore()
+            itemModifications[id] = nil
         }
-        itemRestorations = []
+        for item in barItems where item !== primaryItem {
+            let id = ObjectIdentifier(item)
+            if let originalStyle = itemModifications[id]?.originalStyle {
+                item.style = originalStyle
+                itemModifications[id]?.originalStyle = nil
+            }
+        }
+
+        for item in barItems {
+            let id = ObjectIdentifier(item)
+            var modification = itemModifications[id] ?? ItemModification(item: item)
+            if item === primaryItem {
+                if modification.originalStyle == nil {
+                    modification.originalStyle = item.style
+                }
+                if #available(iOS 26.0, *), item.style != .prominent {
+                    item.style = .prominent
+                }
+            }
+            #if compiler(>=6.4.2)
+            if #available(iOS 27.1, *) {
+                if modification.originalAxisBehavior == nil {
+                    modification.originalAxisBehavior = item.axisBehavior.rawValue
+                }
+                if item.axisBehavior != .verticalPreferred {
+                    item.axisBehavior = .verticalPreferred
+                }
+            }
+            #endif
+            itemModifications[id] = modification
+        }
+    }
+
+    private func restoreItems() {
+        for modification in itemModifications.values {
+            modification.restore()
+        }
+        itemModifications = [:]
+    }
+
+    @MainActor
+    private struct ItemModification {
+        let item: UIBarButtonItem
+        var originalStyle: UIBarButtonItem.Style?
+        /// The raw value of the item's `UIBarButtonItem.AxisBehavior`.
+        var originalAxisBehavior: Int?
+
+        func restore() {
+            if let originalStyle {
+                item.style = originalStyle
+            }
+            #if compiler(>=6.4.2)
+            if #available(iOS 27.1, *),
+               let originalAxisBehavior,
+               let axisBehavior = UIBarButtonItem.AxisBehavior(rawValue: originalAxisBehavior) {
+                item.axisBehavior = axisBehavior
+            }
+            #endif
+        }
     }
 
     /// The item whose menu holds `items`. The same items keep the same item,

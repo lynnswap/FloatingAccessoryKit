@@ -393,3 +393,13 @@ final class ToolbarAnimationRecordingViewController: UIViewController {
         super.setToolbarItems(toolbarItems, animated: animated)
     }
 }
+
+final class StyleAssignmentRecordingBarButtonItem: UIBarButtonItem {
+    private(set) var styleAssignments = 0
+
+    override var style: UIBarButtonItem.Style {
+        didSet {
+            styleAssignments += 1
+        }
+    }
+}
